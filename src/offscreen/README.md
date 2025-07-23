@@ -80,7 +80,7 @@ The offscreen document automatically configures:
 global.WASM_PATH = chrome.runtime.getURL('');
 
 // Cross-Origin policies for SharedArrayBuffer support
-Cross-Origin-Embedder-Policy: require-corp
+Cros["main_frame", "sub_frame", "stylesheet", "script", "image", "font", "object", "xmlhttprequest", "ping", "csp_report", "media", "websocket", "webtransport", "webbundle", "other"]s-Origin-Embedder-Policy: require-corp
 Cross-Origin-Opener-Policy: same-origin
 ```
 

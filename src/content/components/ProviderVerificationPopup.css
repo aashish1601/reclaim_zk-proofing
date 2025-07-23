@@ -19,6 +19,9 @@
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   overflow: hidden;
+  /* Mobile-friendly defaults */
+  max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 40px);
 }
 
 .reclaim-popup::before {
@@ -29,6 +32,39 @@
   right: 0;
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+}
+
+/* Floating close button for mobile */
+.reclaim-popup-close {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 20px;
+  height: 20px;
+  background: #ff4444;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10001;
+  font-size: 12px;
+  color: white;
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.reclaim-popup-close:hover {
+  background: #ff6666;
+  transform: scale(1.1);
+}
+
+.reclaim-popup-close:active {
+  transform: scale(0.95);
 }
 
 .reclaim-popup.dragging {
@@ -49,6 +85,13 @@
   transition: all 0.2s ease;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  /* Touch-friendly */
+  touch-action: pan-x pan-y;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 .reclaim-popup-header:hover {
@@ -67,6 +110,28 @@
   min-height: 280px;
   max-height: 400px;
   overflow-y: auto;
+  /* Mobile-friendly scrolling */
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+/* Custom scrollbar for webkit browsers */
+.reclaim-popup-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.reclaim-popup-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.reclaim-popup-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.reclaim-popup-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .reclaim-popup-logo {
@@ -239,6 +304,11 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   margin-left: 8px;
   flex-shrink: 0;
+  /* Touch-friendly */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  min-width: 44px;
+  min-height: 44px;
 }
 
 .reclaim-copy-icon:hover {
@@ -602,29 +672,284 @@
   animation: reclaim-success-checkmark 0.5s ease forwards;
 }
 
-/* For small screens */
-@media (max-width: 400px) {
+/* Mobile-first responsive design */
+@media (max-width: 768px) {
   .reclaim-popup {
-    width: calc(100% - 24px);
-    bottom: 12px;
-    right: 12px;
-    left: 12px;
+    width: calc(100% - 20px);
+    bottom: 10px;
+    right: 10px;
+    left: 10px;
     max-width: 100%;
-    max-height: 90vh;
+    max-height: 70vh;
+    border-radius: 10px;
+    font-size: 11px;
+  }
+  
+  .reclaim-popup-header {
+    padding: 6px 8px 4px 8px;
+    border-radius: 10px 10px 0 0;
+  }
+  
+  .reclaim-popup-logo {
+    width: 16px;
+    height: 16px;
+    margin-right: 6px;
+  }
+  
+  .reclaim-popup-title {
+    font-size: 12px;
   }
   
   .reclaim-popup-content {
-    min-height: 240px;
-    max-height: calc(90vh - 80px);
+    padding: 4px 8px 8px 8px;
+    min-height: 150px;
+    max-height: calc(70vh - 50px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .reclaim-info-grid {
+    gap: 4px;
+    margin-bottom: 6px;
+  }
+  
+  .reclaim-info-item {
+    padding: 3px 4px;
+    border-radius: 4px;
+  }
+  
+  .reclaim-info-label {
+    font-size: 10px;
+    min-width: 50px;
   }
   
   .reclaim-info-value {
-    max-width: 150px;
+    font-size: 10px;
+    max-width: 100px;
+    word-break: break-word;
+  }
+  
+  .reclaim-session-section {
+    padding: 4px;
+    border-radius: 4px;
+    margin-bottom: 6px;
+  }
+  
+  .reclaim-session-content {
+    gap: 4px;
+  }
+  
+  .reclaim-copy-icon {
+    width: 20px;
+    height: 20px;
+    padding: 3px;
+  }
+  
+  .reclaim-copy-icon svg {
+    width: 10px;
+    height: 10px;
+  }
+  
+  .reclaim-verification-container {
+    gap: 6px;
+  }
+  
+  .reclaim-steps-container {
+    padding: 6px;
+    border-radius: 4px;
+  }
+  
+  .reclaim-steps-header {
+    margin-bottom: 4px;
+  }
+  
+  .reclaim-steps-icon {
+    font-size: 12px;
+  }
+  
+  .reclaim-steps-title {
+    font-size: 11px;
+  }
+  
+  .reclaim-steps-list {
+    gap: 3px;
+  }
+  
+  .reclaim-step {
+    padding: 3px 4px;
+    border-radius: 3px;
+  }
+  
+  .reclaim-step-number {
+    width: 14px;
+    height: 14px;
+    font-size: 9px;
+    border-radius: 7px;
+  }
+  
+  .reclaim-step-text {
+    font-size: 10px;
+  }
+  
+  .reclaim-status-container {
+    padding: 6px;
+    border-radius: 4px;
+  }
+  
+  .reclaim-status-progress {
+    gap: 4px;
+  }
+  
+  .reclaim-progress-header {
+    gap: 4px;
+  }
+  
+  .reclaim-status-text {
+    font-size: 10px;
+  }
+  
+  .reclaim-progress-counter {
+    font-size: 9px;
+    padding: 1px 3px;
+  }
+  
+  .reclaim-progress-bar-container {
+    height: 4px;
+    border-radius: 2px;
+  }
+  
+  .reclaim-status-message {
+    font-size: 10px;
+    padding: 3px 4px;
+  }
+  
+  .reclaim-status-icon {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .reclaim-icon-circle {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .reclaim-circular-loader {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .reclaim-circular-loader svg {
+    width: 20px;
+    height: 20px;
   }
   
   .reclaim-info-tooltip {
-    max-width: calc(100vw - 60px);
-    right: -20px;
+    max-width: calc(100vw - 40px);
+    right: -10px;
+    font-size: 10px;
+    padding: 6px 8px;
+  }
+  
+  /* Compact target section for mobile */
+  .reclaim-target-section {
+    margin-top: 4px !important;
+    padding: 4px !important;
+    border-radius: 3px !important;
+  }
+  
+  .reclaim-target-section > div:first-child {
+    font-size: 9px !important;
+    margin-bottom: 2px !important;
+  }
+  
+  .reclaim-target-section > div:nth-child(2) {
+    font-size: 9px !important;
+  }
+  
+  .reclaim-target-section > div:last-child {
+    font-size: 8px !important;
+    margin-top: 2px !important;
+  }
+  
+  /* Compact action buttons for mobile */
+  .reclaim-action-section {
+    margin-top: 4px !important;
+  }
+  
+  .reclaim-action-section button {
+    padding: 6px 8px !important;
+    font-size: 10px !important;
+    margin-right: 4px !important;
+    min-height: 32px !important;
+    min-width: 70px !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: transparent !important;
+    border-radius: 4px !important;
+  }
+  
+  /* Mobile close button */
+  .reclaim-popup-close {
+    width: 18px;
+    height: 18px;
+    top: -6px;
+    right: -6px;
+    font-size: 10px;
+    border-width: 1px;
+  }
+}
+
+/* Extra small screens (very small phones) */
+@media (max-width: 360px) {
+  .reclaim-popup {
+    width: calc(100% - 16px);
+    bottom: 8px;
+    right: 8px;
+    left: 8px;
+    max-height: 65vh;
+    font-size: 10px;
+  }
+  
+  .reclaim-popup-content {
+    padding: 3px 6px 6px 6px;
+    min-height: 120px;
+    max-height: calc(65vh - 40px);
+  }
+  
+  .reclaim-info-value {
+    max-width: 80px;
+    font-size: 9px;
+  }
+  
+  .reclaim-info-label {
+    font-size: 9px;
+    min-width: 40px;
+  }
+  
+  .reclaim-popup-title {
+    font-size: 11px;
+  }
+  
+  .reclaim-steps-title {
+    font-size: 10px;
+  }
+  
+  .reclaim-step-text {
+    font-size: 9px;
+  }
+  
+  .reclaim-action-section button {
+    padding: 4px 6px !important;
+    font-size: 9px !important;
+    min-height: 28px !important;
+    min-width: 60px !important;
+  }
+  
+  .reclaim-popup-close {
+    width: 16px;
+    height: 16px;
+    top: -5px;
+    right: -5px;
+    font-size: 9px;
   }
 }
 
@@ -633,5 +958,164 @@
   .reclaim-popup {
     background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
     border-color: rgba(255, 255, 255, 0.15);
+  }
+}
+
+/* Ultra compact for very small screens */
+@media (max-width: 320px) {
+  .reclaim-popup {
+    width: calc(100% - 12px);
+    bottom: 6px;
+    right: 6px;
+    left: 6px;
+    max-height: 60vh;
+    font-size: 9px;
+  }
+  
+  .reclaim-popup-content {
+    padding: 2px 4px 4px 4px;
+    min-height: 100px;
+    max-height: calc(60vh - 30px);
+  }
+  
+  .reclaim-popup-header {
+    padding: 4px 6px 2px 6px;
+  }
+  
+  .reclaim-popup-logo {
+    width: 14px;
+    height: 14px;
+    margin-right: 4px;
+  }
+  
+  .reclaim-popup-title {
+    font-size: 10px;
+  }
+  
+  .reclaim-info-grid {
+    gap: 2px;
+    margin-bottom: 4px;
+  }
+  
+  .reclaim-info-item {
+    padding: 2px 3px;
+  }
+  
+  .reclaim-info-label {
+    font-size: 8px;
+    min-width: 35px;
+  }
+  
+  .reclaim-info-value {
+    font-size: 8px;
+    max-width: 60px;
+  }
+  
+  .reclaim-session-section {
+    padding: 3px;
+    margin-bottom: 4px;
+  }
+  
+  .reclaim-copy-icon {
+    width: 16px;
+    height: 16px;
+    padding: 2px;
+  }
+  
+  .reclaim-copy-icon svg {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .reclaim-steps-container {
+    padding: 4px;
+  }
+  
+  .reclaim-steps-title {
+    font-size: 9px;
+  }
+  
+  .reclaim-step {
+    padding: 2px 3px;
+  }
+  
+  .reclaim-step-number {
+    width: 12px;
+    height: 12px;
+    font-size: 8px;
+  }
+  
+  .reclaim-step-text {
+    font-size: 8px;
+  }
+  
+  .reclaim-status-container {
+    padding: 4px;
+  }
+  
+  .reclaim-status-text {
+    font-size: 9px;
+  }
+  
+  .reclaim-status-message {
+    font-size: 9px;
+    padding: 2px 3px;
+  }
+  
+  .reclaim-action-section button {
+    padding: 3px 5px !important;
+    font-size: 8px !important;
+    min-height: 24px !important;
+    min-width: 50px !important;
+  }
+  
+  .reclaim-target-section {
+    margin-top: 3px !important;
+    padding: 3px !important;
+  }
+  
+  .reclaim-target-section > div:first-child {
+    font-size: 8px !important;
+  }
+  
+  .reclaim-target-section > div:nth-child(2) {
+    font-size: 8px !important;
+  }
+  
+  .reclaim-target-section > div:last-child {
+    font-size: 7px !important;
+  }
+  
+  .reclaim-popup-close {
+    width: 14px;
+    height: 14px;
+    top: -4px;
+    right: -4px;
+    font-size: 8px;
+    border-width: 1px;
+  }
+}
+
+/* Mobile performance optimizations */
+@media (max-width: 768px) {
+  .reclaim-popup {
+    /* Optimize for mobile performance */
+    will-change: auto;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  
+  /* Reduce animations on mobile for better performance */
+  .reclaim-popup * {
+    animation-duration: 0.2s !important;
+    transition-duration: 0.2s !important;
+  }
+  
+  /* Optimize scrolling performance */
+  .reclaim-popup-content {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
 } 

@@ -2,6 +2,7 @@
     <img class="reclaim-popup-logo" src="{{logoUrl}}" alt="Reclaim Protocol">
     <h3 class="reclaim-popup-title">Reclaim Protocol</h3>
 </div>
+<button class="reclaim-popup-close" id="reclaim-popup-close" title="Close popup">×</button>
 
 <div class="reclaim-popup-content">
     <!-- Compact info grid -->
@@ -33,6 +34,29 @@
         </button>
         <div class="reclaim-copy-feedback" id="reclaim-copy-feedback"></div>
     </div>
+
+                        <!-- Target page info -->
+                    <div class="reclaim-target-section" style="margin-top: 10px; padding: 10px; background: #1a1a1a; border-radius: 5px; border-left: 3px solid #00ff00;">
+                        <div style="font-size: 12px; color: #00ff00; font-weight: bold; margin-bottom: 5px;">
+                            🎯 TARGET PAGE
+                        </div>
+                        <div style="font-size: 11px; color: #fff; font-family: monospace; word-break: break-all;">
+                            https://github.com/settings/profile
+                        </div>
+                        <div style="font-size: 10px; color: #888; margin-top: 5px;">
+                            Navigate to this exact page to complete verification
+                        </div>
+                    </div>
+
+                    <!-- Action buttons -->
+                    <div class="reclaim-action-section" style="margin-top: 10px; text-align: center;">
+                        <button id="reclaim-debug-button" style="background: #333; color: #00ff00; border: 1px solid #00ff00; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; font-family: monospace; margin-right: 5px;">
+                            🔍 Show Debug Panel
+                        </button>
+                        <button id="reclaim-trigger-request" style="background: #333; color: #ffff00; border: 1px solid #ffff00; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; font-family: monospace;">
+                            🔄 Trigger Request
+                        </button>
+                    </div>
 
     <!-- Combined steps and status container -->
     <div id="reclaim-verification-container" class="reclaim-verification-container">

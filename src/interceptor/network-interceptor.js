@@ -92,6 +92,31 @@
 
                 try {
                     responseBody = await clone.text();
+                    
+                    // ⭐ DEBUG: Check for CSP errors in response ⭐
+                    if (responseBody && typeof responseBody === 'string') {
+                        const cspIndicators = [
+                            'Content Security Policy',
+                            'CSP',
+                            'script-src',
+                            'unsafe-eval',
+                            'unsafe-inline',
+                            'Refused to execute script',
+                            'Content-Security-Policy'
+                        ];
+                        
+                        const hasCspError = cspIndicators.some(indicator => 
+                            responseBody.toLowerCase().includes(indicator.toLowerCase())
+                        );
+                        
+                        if (hasCspError) {
+                            console.warn('⚠️ [Network Interceptor] Possible CSP error in response:', {
+                                url: response.url,
+                                status: response.status,
+                                bodyPreview: responseBody.substring(0, 200) + '...'
+                            });
+                        }
+                    }
                 } catch (error) {
                     debug.error("Error parsing response:", error);
                     responseBody = "Could not read response body";
@@ -124,6 +149,15 @@
                         if (!url) {
                             return Reflect.apply(target, thisArg, argumentsList);
                         }
+
+                        // ⭐ DEBUG: Log fetch interception ⭐
+                        console.log('🔍 [Network Interceptor] Intercepting fetch request:', {
+                            url: url,
+                            method: options.method || 'GET',
+                            hasBody: !!options.body,
+                            hasHeaders: !!options.headers,
+                            timestamp: new Date().toISOString()
+                        });
 
                         const requestData = {
                             url,
@@ -207,6 +241,14 @@
                     });
 
                     const [method = "GET", url = ""] = args;
+                    
+                    // ⭐ DEBUG: Log XHR open ⭐
+                    console.log('🔍 [Network Interceptor] XHR open called:', {
+                        method: method,
+                        url: url,
+                        timestamp: new Date().toISOString()
+                    });
+                    
                     const requestInfo = {
                         url,
                         options: {
@@ -237,6 +279,15 @@
                     const requestInfo = requestInfoMap.get(this);
                     if (requestInfo) {
                         requestInfo.options.body = data;
+
+                        // ⭐ DEBUG: Log XHR send ⭐
+                        console.log('🔍 [Network Interceptor] XHR send called:', {
+                            url: requestInfo.url,
+                            method: requestInfo.options.method,
+                            hasBody: !!data,
+                            bodyType: typeof data,
+                            timestamp: new Date().toISOString()
+                        });
 
                         // Process request middlewares
                         const runRequestMiddlewares = async () => {

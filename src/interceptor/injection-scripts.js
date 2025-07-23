@@ -7,9 +7,9 @@
 (function() {
     'use strict';
 
-    // Backend API configuration
-    const BACKEND_URL = 'https://api.reclaimprotocol.org';
-    const PROVIDER_API_ENDPOINT = (providerId) => `${BACKEND_URL}/api/providers/${providerId}/custom-injection`;
+    // Backend API configuration (now handled via content script)
+    // const BACKEND_URL = 'https://api.reclaimprotocol.org';
+    // const PROVIDER_API_ENDPOINT = (providerId) => `${BACKEND_URL}/api/providers/${providerId}/custom-injection`;
     
     // Debug utility for logging
     const debug = {
@@ -91,40 +91,52 @@
     }
 
     /**
-     * Fetch provider data including custom injection script from backend
+     * Fetch provider data including custom injection script from backend via content script
      */
     async function fetchProviderInjectionScript(providerId) {
         try {
             debug.info(`Fetching injection script for provider: ${providerId}`);
             
-            const response = await fetch(PROVIDER_API_ENDPOINT(providerId), {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'ngrok-skip-browser-warning': 'true'
-                },
+            return new Promise((resolve, reject) => {
+                // Listen for response from content script
+                const handleMessage = (event) => {
+                    if (event.source !== window) return;
+                    
+                    if (event.data.action === 'RECLAIM_INJECTION_SCRIPT_RESPONSE') {
+                        window.removeEventListener('message', handleMessage);
+                        
+                        if (event.data.error) {
+                            debug.error(`Failed to fetch injection script: ${event.data.error}`);
+                            resolve(null);
+                        } else {
+                            debug.info(`Successfully fetched injection script for provider: ${providerId}`);
+                            resolve({
+                                script: event.data.scriptContent,
+                                providerData: { 
+                                    httpProviderId: providerId, 
+                                    name: event.data.providerName || 'Unknown Provider' 
+                                }
+                            });
+                        }
+                    }
+                };
+
+                window.addEventListener('message', handleMessage);
+
+                // Request injection script from content script
+                window.postMessage({
+                    action: 'RECLAIM_FETCH_INJECTION_SCRIPT',
+                    providerId: providerId,
+                    source: 'injection-script'
+                }, '*');
+
+                // Timeout after 10 seconds
+                setTimeout(() => {
+                    window.removeEventListener('message', handleMessage);
+                    debug.error('Timeout waiting for injection script response');
+                    resolve(null);
+                }, 10000);
             });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const scriptContent = await response.text();
-            
-            // Check if we got a valid script
-            if (!scriptContent || scriptContent.trim() === '') {
-                debug.info(`No injection script content found for provider: ${providerId}`);
-                return null;
-            }
-
-            debug.info(`Successfully fetched injection script for provider: ${providerId}`);
-            return {
-                script: scriptContent,
-                providerData: { 
-                    httpProviderId: providerId, 
-                    name: 'Unknown Provider' 
-                }
-            };
 
         } catch (error) {
             debug.error(`Failed to fetch injection script for provider ${providerId}:`, error);
@@ -138,33 +150,31 @@
     function executeInjectionScript(scriptContent, providerData) {
         try {
             debug.info(`Executing injection script for provider: ${providerData.name || 'Unknown'}`);
-            
-            // Create a new function context to execute the script
-            // This allows the script to access the page's globals while providing isolation
-            const scriptFunction = new Function(
-                'window', 
-                'document', 
-                'console', 
-                'localStorage', 
-                'sessionStorage',
-                'providerData',
-                scriptContent
-            );
 
-            // Execute the script with current window context
-            scriptFunction(
-                window, 
-                document, 
-                console, 
-                localStorage, 
-                sessionStorage,
-                providerData
-            );
+            // LinkedIn has extremely strict CSP that blocks all script execution
+            // Instead of trying to execute scripts, we'll use a different approach:
+            // 1. Store the script content and provider data in a safe location
+            // 2. Use postMessage to communicate with content script
+            // 3. Let the content script handle the actual execution in extension context
 
-            debug.info(`Successfully executed injection script for provider: ${providerData.name || 'Unknown'}`);
-            
-            // Dispatch a custom event to notify that injection script has been executed
-            window.dispatchEvent(new CustomEvent('reclaimInjectionScriptExecuted', {
+            // Store the injection data in a way that doesn't violate CSP
+            const injectionData = {
+                scriptContent: scriptContent,
+                providerData: providerData,
+                timestamp: Date.now()
+            };
+
+            // Use postMessage to send the injection data to content script
+            window.postMessage({
+                action: 'RECLAIM_EXECUTE_INJECTION_SCRIPT',
+                source: 'injection-script',
+                data: injectionData
+            }, '*');
+
+            debug.info(`Sent injection script data to content script for provider: ${providerData.name || 'Unknown'}`);
+
+            // Dispatch a custom event to notify that injection script data has been sent
+            window.dispatchEvent(new CustomEvent('reclaimInjectionScriptSent', {
                 detail: {
                     providerId: providerData.httpProviderId,
                     providerName: providerData.name,
@@ -173,8 +183,8 @@
             }));
 
         } catch (error) {
-            debug.error(`Error executing injection script:`, error);
-            
+            debug.error(`Error sending injection script data:`, error);
+
             // Dispatch error event
             window.dispatchEvent(new CustomEvent('reclaimInjectionScriptError', {
                 detail: {

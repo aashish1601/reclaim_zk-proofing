@@ -1,4 +1,12 @@
 export function createProviderVerificationPopup(providerName, description, dataRequired, sessionId) {
+    // ⭐ DEBUG: Log popup creation ⭐
+    console.log('[Reclaim Debug] Creating ProviderVerificationPopup:', {
+        providerName,
+        description,
+        dataRequired,
+        sessionId
+    });
+    
     // Inject CSS styles directly instead of importing them
     injectStyles();
     
@@ -26,6 +34,7 @@ export function createProviderVerificationPopup(providerName, description, dataR
         initializeDragFunctionality();
         initializeCopyFunctionality();
         initializeTooltipFunctionality();
+        initializeDebugFunctionality();
     });
 
     // Drag and copy functionality will be initialized after content is rendered
@@ -126,6 +135,28 @@ export function createProviderVerificationPopup(providerName, description, dataR
             document.addEventListener('mouseup', handleMouseUp);
         }
         
+        // Initialize close button functionality
+        const closeButton = popup.querySelector('#reclaim-popup-close');
+        if (closeButton) {
+            const closePopup = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Remove the popup from DOM
+                if (popup.parentNode) {
+                    popup.parentNode.removeChild(popup);
+                }
+                
+                // Clean up any global event listeners
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+            };
+            
+            // Support both click and touch events for mobile
+            closeButton.addEventListener('click', closePopup);
+            closeButton.addEventListener('touchend', closePopup);
+        }
+        
         function handleMouseMove(e) {
             if (!isDragging) return;
             
@@ -163,13 +194,15 @@ export function createProviderVerificationPopup(providerName, description, dataR
             document.removeEventListener('mouseup', handleMouseUp);
         }
         
-        // Add mousedown listener to header
-        header.addEventListener('mousedown', handleMouseDown);
-        
-        // Prevent context menu on header to avoid interference
-        header.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-        });
+        // Add mousedown listener to header (with null check)
+        if (header) {
+            header.addEventListener('mousedown', handleMouseDown);
+            
+            // Prevent context menu on header to avoid interference
+            header.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+            });
+        }
     }
 
     // Function to initialize copy functionality
@@ -177,7 +210,7 @@ export function createProviderVerificationPopup(providerName, description, dataR
         const copyButton = popup.querySelector('.reclaim-copy-icon');
         const copyFeedback = popup.querySelector('#reclaim-copy-feedback');
         
-        if (copyButton) {
+        if (copyButton && copyFeedback) {
             copyButton.addEventListener('click', async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -271,25 +304,27 @@ export function createProviderVerificationPopup(providerName, description, dataR
                     }
                 }
                 
-                element.addEventListener('mouseenter', () => {
-                    clearTimeout(hoverTimeout);
-                    hoverTimeout = setTimeout(showTooltip, 500);
-                });
-                
-                element.addEventListener('mouseleave', () => {
-                    clearTimeout(hoverTimeout);
-                    hideTooltip();
-                });
-                
-                // Also show tooltip on click for mobile
-                element.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    if (tooltip && tooltip.classList.contains('show')) {
+                if (element) {
+                    element.addEventListener('mouseenter', () => {
+                        clearTimeout(hoverTimeout);
+                        hoverTimeout = setTimeout(showTooltip, 500);
+                    });
+                    
+                    element.addEventListener('mouseleave', () => {
+                        clearTimeout(hoverTimeout);
                         hideTooltip();
-                    } else {
-                        showTooltip();
-                    }
-                });
+                    });
+                    
+                    // Also show tooltip on click for mobile
+                    element.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (tooltip && tooltip.classList.contains('show')) {
+                            hideTooltip();
+                        } else {
+                            showTooltip();
+                        }
+                    });
+                }
             }
         });
         
@@ -300,6 +335,60 @@ export function createProviderVerificationPopup(providerName, description, dataR
                 tooltip.classList.remove('show');
             });
         });
+    }
+
+                        // Function to initialize debug button functionality
+                    function initializeDebugFunctionality() {
+                        const debugButton = popup.querySelector('#reclaim-debug-button');
+                        if (debugButton) {
+                            debugButton.addEventListener('click', (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                
+                                // Call the global showDebugPanel function
+                                if (typeof showDebugPanel === 'function') {
+                                    showDebugPanel();
+                                } else {
+                                    console.log('[Reclaim Debug] Debug panel function not available');
+                                    // Fallback: create a simple alert with debug info
+                                    const debugInfo = {
+                                        url: window.location.href,
+                                        timestamp: new Date().toISOString(),
+                                        providerName: providerName,
+                                        sessionId: sessionId
+                                    };
+                                    alert('Debug Info: ' + JSON.stringify(debugInfo, null, 2));
+                                }
+                            });
+                        }
+                        
+                        // ⭐ NEW: Initialize trigger request button functionality ⭐
+                        const triggerButton = popup.querySelector('#reclaim-trigger-request');
+                        if (triggerButton) {
+                            triggerButton.addEventListener('click', (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                
+                                console.log('[Reclaim Debug] Trigger request button clicked');
+                                
+                                // Try to trigger the target request
+                                const targetUrl = 'https://github.com/settings/profile';
+                                fetch(targetUrl, {
+                                    method: 'GET',
+                                    credentials: 'include'
+                                }).then(response => {
+                                    console.log('[Reclaim Debug] ✅ Successfully triggered request:', {
+                                        url: targetUrl,
+                                        status: response.status,
+                                        statusText: response.statusText
+                                    });
+                                    alert('✅ Request triggered successfully! Check console for details.');
+                                }).catch(error => {
+                                    console.log('[Reclaim Debug] ❌ Failed to trigger request:', error);
+                                    alert('❌ Failed to trigger request: ' + error.message);
+                                });
+                            });
+                        }
     }
 
     // Function to show loader
@@ -326,12 +415,22 @@ export function createProviderVerificationPopup(providerName, description, dataR
             errorIcon.style.display = 'none';
         }
         
-        // Show the status container using CSS classes
-        statusContainer.classList.add('visible');
-        contentContainer.classList.add('status-active');
-        circularLoader.style.display = 'flex';
-        progressContainer.style.display = 'block';
-        statusText.textContent = message;
+        // Show the status container using CSS classes (with null checks)
+        if (statusContainer) {
+            statusContainer.classList.add('visible');
+        }
+        if (contentContainer) {
+            contentContainer.classList.add('status-active');
+        }
+        if (circularLoader) {
+            circularLoader.style.display = 'flex';
+        }
+        if (progressContainer) {
+            progressContainer.style.display = 'block';
+        }
+        if (statusText) {
+            statusText.textContent = message;
+        }
         
         state.inProgress = true;
         updateProgressBar();
@@ -342,23 +441,27 @@ export function createProviderVerificationPopup(providerName, description, dataR
         const progressBar = popup.querySelector('#reclaim-progress-bar');
         const progressCounter = popup.querySelector('#reclaim-progress-counter');
         
-        if (state.totalClaims > 0) {
-            const percentage = (state.completedClaims / state.totalClaims);
-            // Use transform instead of width to avoid layout recalculations
-            progressBar.style.transform = `scaleX(${percentage})`;
-            progressCounter.textContent = `${state.completedClaims}/${state.totalClaims}`;
-        } else {
-            progressBar.style.transform = 'scaleX(1)';
-            progressBar.style.animation = 'reclaim-progress-pulse 2s infinite';
-            progressCounter.textContent = '';
+        if (progressBar && progressCounter) {
+            if (state.totalClaims > 0) {
+                const percentage = (state.completedClaims / state.totalClaims);
+                // Use transform instead of width to avoid layout recalculations
+                progressBar.style.transform = `scaleX(${percentage})`;
+                progressCounter.textContent = `${state.completedClaims}/${state.totalClaims}`;
+            } else {
+                progressBar.style.transform = 'scaleX(1)';
+                progressBar.style.animation = 'reclaim-progress-pulse 2s infinite';
+                progressCounter.textContent = '';
+            }
         }
     }
 
     // Function to update status message
     function updateStatusMessage(message, isError = false) {
         const statusMessage = popup.querySelector('#reclaim-status-message');
-        statusMessage.textContent = message;
-        statusMessage.style.color = isError ? '#ef4444' : 'rgba(255, 255, 255, 0.8)';
+        if (statusMessage) {
+            statusMessage.textContent = message;
+            statusMessage.style.color = isError ? '#ef4444' : 'rgba(255, 255, 255, 0.8)';
+        }
     }
 
     // Function to show success state
@@ -401,7 +504,7 @@ export function createProviderVerificationPopup(providerName, description, dataR
             progressCounter.textContent = '100%';
         }
         
-        updateStatusMessage("You will be redirected to the original page shortly.");
+        updateStatusMessage("ZK proof generated and submitted successfully! Verification complete.");
         
         // Show success icon
         const successIcon = popup.querySelector('#reclaim-success-icon');
@@ -496,7 +599,7 @@ export function createProviderVerificationPopup(providerName, description, dataR
         
         handleProofGenerationSuccess: (requestHash) => {
             incrementCompletedClaims();
-            updateStatusMessage(`Proof generated (${state.completedClaims}/${state.totalClaims})`);
+            updateStatusMessage(`ZK proof generated successfully! (${state.completedClaims}/${state.totalClaims})`);
         },
         
         handleProofGenerationFailed: (requestHash) => {

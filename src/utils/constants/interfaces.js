@@ -1,3 +1,5 @@
+// src/utils/constants/interfaces.js
+
 /**
  * @typedef {Object} TemplateData
  * @property {string} sessionId - Unique identifier for the session
@@ -13,81 +15,6 @@
  * @property {string} sdkVersion - SDK version
  * @property {boolean} jsonProofResponse - Whether to return proof as JSON
  */
-
-export const RECLAIM_SDK_ACTIONS = {
-  CHECK_EXTENSION: 'RECLAIM_EXTENSION_CHECK',
-  EXTENSION_RESPONSE: 'RECLAIM_EXTENSION_RESPONSE',
-  START_VERIFICATION: 'RECLAIM_START_VERIFICATION',
-  VERIFICATION_STARTED: 'RECLAIM_VERIFICATION_STARTED',
-  VERIFICATION_COMPLETED: 'RECLAIM_VERIFICATION_COMPLETED',
-  VERIFICATION_FAILED: 'RECLAIM_VERIFICATION_FAILED'
-};
-
-
-export const RECLAIM_SESSION_STATUS = {
-  SESSION_INIT: 'SESSION_INIT',
-  SESSION_STARTED: 'SESSION_STARTED',
-  USER_INIT_VERIFICATION: 'USER_INIT_VERIFICATION',
-  USER_STARTED_VERIFICATION: 'USER_STARTED_VERIFICATION',
-  PROOF_GENERATION_STARTED: 'PROOF_GENERATION_STARTED',
-  PROOF_GENERATION_SUCCESS: 'PROOF_GENERATION_SUCCESS',
-  PROOF_GENERATION_FAILED: 'PROOF_GENERATION_FAILED',
-  PROOF_SUBMITTED: 'PROOF_SUBMITTED',
-  PROOF_SUBMISSION_FAILED: 'PROOF_SUBMISSION_FAILED',
-  PROOF_MANUAL_VERIFICATION_SUBMITED: 'PROOF_MANUAL_VERIFICATION_SUBMITED'
-};
-
-
-export const MESSAGE_SOURCES = {
-  CONTENT_SCRIPT: 'content-script',
-  BACKGROUND: 'background',
-  OFFSCREEN: 'offscreen'
-};
-
-export const MESSAGE_ACTIONS = {
-
-  // Proof generation actions
-  START_VERIFICATION: 'START_VERIFICATION',
-  GENERATE_PROOF_REQUEST: 'GENERATE_PROOF_REQUEST',
-  CLAIM_CREATION_REQUESTED: 'CLAIM_CREATION_REQUESTED',
-  CLAIM_CREATION_SUCCESS: 'CLAIM_CREATION_SUCCESS',
-  CLAIM_CREATION_FAILED: 'CLAIM_CREATION_FAILED',
-  PROOF_GENERATION_STARTED: 'PROOF_GENERATION_STARTED',
-  PROOF_GENERATION_SUCCESS: 'PROOF_GENERATION_SUCCESS',
-  PROOF_GENERATION_FAILED: 'PROOF_GENERATION_FAILED',
-  PROOF_SUBMITTED: 'PROOF_SUBMITTED',
-  PROOF_SUBMISSION_FAILED: 'PROOF_SUBMISSION_FAILED',
-  GENERATE_PROOF: 'GENERATE_PROOF',
-  GENERATED_PROOF_RESPONSE: 'GENERATED_PROOF_RESPONSE',
-  GENERATE_CLAIM_ON_ATTESTOR: 'GENERATE_CLAIM_ON_ATTESTOR',
-  GET_PRIVATE_KEY: 'GET_PRIVATE_KEY',
-  GET_PRIVATE_KEY_RESPONSE: 'GET_PRIVATE_KEY_RESPONSE',
-
-  // UI actions
-  SHOW_PROVIDER_VERIFICATION_POPUP: 'SHOW_PROVIDER_VERIFICATION_POPUP',
-  OFFSCREEN_DOCUMENT_READY: 'OFFSCREEN_DOCUMENT_READY',
-
-
-  // Offscreen actions
-  GENERATE_PROOF_RESPONSE: 'GENERATE_PROOF_RESPONSE',
-  PING_OFFSCREEN: 'PING_OFFSCREEN',
-
-  // Background actions
-  CLOSE_CURRENT_TAB: 'CLOSE_CURRENT_TAB',
-  GET_CURRENT_TAB_ID: 'GET_CURRENT_TAB_ID',
-  // Content script actions
-  REQUEST_PROVIDER_DATA: 'REQUEST_PROVIDER_DATA',
-  PROVIDER_DATA_READY: 'PROVIDER_DATA_READY',
-  CONTENT_SCRIPT_LOADED: 'CONTENT_SCRIPT_LOADED',
-  SHOULD_INITIALIZE: 'SHOULD_INITIALIZE',
-  CHECK_IF_MANAGED_TAB: 'CHECK_IF_MANAGED_TAB',
-
-  // Interceptor actions
-  FILTERED_REQUEST_FOUND: 'FILTERED_REQUEST_FOUND',
-  INTERCEPTED_REQUEST: 'INTERCEPTED_REQUEST',
-  INTERCEPTED_RESPONSE: 'INTERCEPTED_RESPONSE',
-
-};
 
 /**
  * @typedef {Object} ProviderData
@@ -107,13 +34,13 @@ export const MESSAGE_ACTIONS = {
  * @property {string} userAgent.ios - iOS user agent
  * @property {string} userAgent.android - Android user agent
  * @property {boolean} isActive - Whether provider is active
- * @property {string|null} expectedPageUrl - Expected page URL
- * @property {string|null} pageTitle - Page title
- * @property {string|null} stepsToFollow - Steps to follow
- * @property {number} usedInCount - Number of times used
- * @property {string|null} overseerUid - Overseer UID
- * @property {string|null} overseerNote - Overseer note
- * @property {Array<RequestData>} requestData - Request data
+ * @string|null} expectedPageUrl - Expected page URL
+ * @string|null} pageTitle - Page title
+ * @string|null} stepsToFollow - Steps to follow
+ * @number} usedInCount - Number of times used
+ * @string|null} overseerUid - Overseer UID
+ * @string|null} overseerNote - Overseer note
+ * @Array<RequestData>} requestData - Request data
  */
 
 /**
@@ -121,34 +48,33 @@ export const MESSAGE_ACTIONS = {
  * @property {string} url - Request URL
  * @property {string} expectedPageUrl - Expected page URL
  * @property {string} urlType - URL type
- * @property {string} method - HTTP method
- * @property {Array<ResponseMatch>} responseMatches - Response matches
- * @property {Array<ResponseRedaction>} responseRedactions - Response redactions
- * @property {BodySniff} bodySniff - Body sniff
- * @property {string} requestHash - Request hash
- * @property {string|null} additionalClientOptions - Additional client options
+ * @string} method - HTTP method
+ * @Array<ResponseMatch>} responseMatches - Response matches
+ * @Array<ResponseRedaction>} responseRedactions - Response redactions
+ * @BodySniff} bodySniff - Body sniff
+ * @string} requestHash - Request hash
+ * @string|null} additionalClientOptions - Additional client options
  */
 
 /**
  * @typedef {Object} ResponseMatch
  * @property {string} value - Match value
- * @property {string} type - Match type
- * @property {boolean} invert - Whether to invert the match
- * @property {string|null} description - Match description
- * @property {number|null} order - Match order
+ * @string} type - Match type
+ * @boolean} invert - Whether to invert the match
+ * @string|null} description - Match description
+ * @number|null} order - Match order
  */
 
 /**
  * @typedef {Object} ResponseRedaction
  * @property {string} xPath - XPath
- * @property {string} jsonPath - JSON path
- * @property {string} regex - Regular expression
- * @property {string} hash - Hash
+ * @string} jsonPath - JSON path
+ * @string} regex - Regular expression
+ * @string} hash - Hash
  */
 
 /**
  * @typedef {Object} BodySniff
  * @property {boolean} enabled - Whether body sniffing is enabled
- * @property {string} template - Body template
+ * @string} template - Body template
  */
-

@@ -9,7 +9,7 @@ export class SessionTimerManager {
     constructor() {
         // Timer for session
         this.sessionTimer = null;
-        this.sessionTimerDuration = 30000; // 30 seconds in milliseconds
+        this.sessionTimerDuration = 120000; // 30 seconds in milliseconds
         this.sessionTimerPaused = false;
         this.sessionTimerRemainingTime = 0;
         this.sessionTimerStartTime = 0;
