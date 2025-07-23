@@ -56,13 +56,15 @@ export async function startVerification(ctx, templateData) {
         // Register network request interceptors (CSP-safe) instead of page script injection
         registerRequestInterceptors(ctx);
 
-        if (!providerData || !providerData.loginUrl) {
-            throw new Error('Provider data or login URL not found for session initialization.');
+        // ⭐ ENHANCED: Use provider-specific login URL if provided, otherwise fall back to provider data ⭐
+        const loginUrl = templateData.providerLoginUrl || providerData?.loginUrl;
+        if (!loginUrl) {
+            throw new Error('Provider login URL not found for session initialization.');
         }
 
         // Create the initial provider login tab
         const tab = await new Promise((resolve, reject) => {
-            chrome.tabs.create({ url: providerData.loginUrl, active: true }, (newTab) => {
+            chrome.tabs.create({ url: loginUrl, active: true }, (newTab) => {
                 if (chrome.runtime.lastError) {
                     reject(new Error(chrome.runtime.lastError.message));
                 } else {
@@ -76,7 +78,7 @@ export async function startVerification(ctx, templateData) {
             ctx.managedTabs.add(tab.id);
 
             ctx.loggerService.log({
-                message: `SessionManager: New provider tab created (ID: ${tab.id}) for login URL: ${providerData.loginUrl}`,
+                message: `SessionManager: New provider tab created (ID: ${tab.id}) for login URL: ${loginUrl}`,
                 type: ctx.LOG_TYPES.BACKGROUND,
                 sessionId: ctx.sessionId,
                 providerId: ctx.httpProviderId,
@@ -88,7 +90,7 @@ export async function startVerification(ctx, templateData) {
                 source: ctx.MESSAGE_SOURCES.BACKGROUND,
                 target: ctx.MESSAGE_SOURCES.CONTENT_SCRIPT,
                 data: {
-                    providerName: ctx.providerData?.name || 'Default Provider',
+                    providerName: templateData.providerName || ctx.providerData?.name || 'Default Provider',
                     description: ctx.providerData?.description || 'Default Description',
                     dataRequired: ctx.providerData?.verificationConfig?.dataRequired || 'Default Data',
                     sessionId: ctx.sessionId

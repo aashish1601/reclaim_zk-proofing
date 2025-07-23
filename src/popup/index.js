@@ -2,12 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 
-import { MESSAGE_ACTIONS, MESSAGE_SOURCES } from '../utils/constants';
+import { MESSAGE_ACTIONS, MESSAGE_SOURCES, PROVIDERS } from '../utils/constants';
 
 const PopupApp = () => {
-    const [statusMessage, setStatusMessage] = useState('Click the button to start verification.');
+    const [statusMessage, setStatusMessage] = useState('Select a provider to start verification.');
     const [loading, setLoading] = useState(false);
     const [resetting, setResetting] = useState(false);
+    const [selectedProvider, setSelectedProvider] = useState(null);
 
     // ⭐ IMPORTANT: This URL MUST be updated every time Ngrok restarts! ⭐
     // Replace with your CURRENT Ngrok HTTPS forwarding URL + /generate-config
@@ -37,7 +38,17 @@ const PopupApp = () => {
         }
     };
 
+    const handleProviderSelect = (providerKey) => {
+        setSelectedProvider(providerKey);
+        setStatusMessage(`Selected ${PROVIDERS[providerKey].name}. Click "Start Verification" to begin.`);
+    };
+
     const handlePerformAction = async () => {
+        if (!selectedProvider) {
+            setStatusMessage('Please select a provider first.');
+            return;
+        }
+
         setLoading(true);
         setStatusMessage('Fetching verification configuration...');
 
@@ -99,15 +110,18 @@ const PopupApp = () => {
 
             setStatusMessage('Configuration fetched. Initiating verification...');
 
-            // ⭐ CRITICAL MODIFICATION: Pass templateData fields with APP_ID and PROVIDER_ID ⭐
+            // ⭐ ENHANCED: Use selected provider configuration ⭐
+            const selectedProviderConfig = PROVIDERS[selectedProvider];
             const templateDataForBackground = {
-                // Use hardcoded values since process.env is not available in browser context
+                // Use selected provider's ID instead of hardcoded values
                 applicationId: "0x7c74e6112781b2c5B80443fAfcf2Ea0b4c17EE16",     // Your Reclaim Application ID
-                providerId: "6d3f6753-7ee6-49ee-a545-62f1b1822ae5",   // Your Reclaim Provider ID
+                providerId: selectedProviderConfig.id,   // Use selected provider's ID
                 sessionId: data.sessionId,
                 callbackUrl: `${BACKEND_GENERATE_CONFIG_URL.replace('/generate-config', '/receive-proofs')}`, // Use backend's receive-proofs endpoint
                 parameters: {}, // Any specific parameters for the proof
-                reclaimProofRequestConfig: data.reclaimProofRequestConfig // The main config string
+                reclaimProofRequestConfig: data.reclaimProofRequestConfig, // The main config string
+                providerName: selectedProviderConfig.name, // Pass provider name for UI
+                providerLoginUrl: selectedProviderConfig.loginUrl // Pass login URL
             };
 
             const backgroundResponse = await sendMessageToBackground(
@@ -116,7 +130,7 @@ const PopupApp = () => {
             );
 
             if (backgroundResponse.success) {
-                setStatusMessage('Verification initiated successfully! Please follow the prompts in the new window.');
+                setStatusMessage(`Verification initiated for ${selectedProviderConfig.name}! Please follow the prompts in the new window.`);
             } else {
                 setStatusMessage(`Verification failed: ${backgroundResponse.error || 'Unknown error from background'}`);
                 setLoading(false);
@@ -210,6 +224,41 @@ const PopupApp = () => {
     return (
         <div className="container">
             <h1>Reclaim Protocol</h1>
+            
+            {/* Provider Selection */}
+            <div style={{ marginBottom: '15px' }}>
+                <h3 style={{ fontSize: '14px', marginBottom: '10px', color: '#e5e7eb' }}>Select Provider:</h3>
+                <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
+                    {Object.entries(PROVIDERS).map(([key, provider]) => (
+                        <button
+                            key={key}
+                            onClick={() => handleProviderSelect(key)}
+                            disabled={loading || resetting}
+                            style={{
+                                backgroundColor: selectedProvider === key ? '#3b82f6' : '#374151',
+                                color: 'white',
+                                border: 'none',
+                                padding: '12px',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                transition: 'background-color 0.3s ease',
+                                boxShadow: selectedProvider === key ? '0 4px 10px rgba(59, 130, 246, 0.3)' : 'none'
+                            }}
+                        >
+                            <span style={{ fontSize: '16px' }}>{provider.icon}</span>
+                            <div style={{ textAlign: 'left' }}>
+                                <div style={{ fontWeight: 'bold' }}>{provider.name}</div>
+                                <div style={{ fontSize: '11px', opacity: 0.8 }}>{provider.description}</div>
+                            </div>
+                        </button>
+                    ))}
+                </div>
+            </div>
+
             <p className="status-message">
                 {viewUrl ? (
                     <>
@@ -227,12 +276,17 @@ const PopupApp = () => {
                     statusMessage
                 )}
             </p>
+            
             <div style={{ fontSize: '11px', color: '#666', margin: '5px 0', wordBreak: 'break-all' }}>
                 Backend: {BACKEND_GENERATE_CONFIG_URL}
             </div>
+            
             <button
                 onClick={handlePerformAction}
-                disabled={loading || resetting}
+                disabled={loading || resetting || !selectedProvider}
+                style={{
+                    opacity: !selectedProvider ? 0.5 : 1
+                }}
             >
                 {loading ? 'Starting...' : 'Start Reclaim Verification'}
             </button>
@@ -254,6 +308,9 @@ const PopupApp = () => {
                     <summary>Debug Info</summary>
                     <div>Extension ID: {chrome.runtime.id}</div>
                     <div>Timestamp: {new Date().toISOString()}</div>
+                    {selectedProvider && (
+                        <div>Selected Provider: {PROVIDERS[selectedProvider].name}</div>
+                    )}
                     {viewUrl && (
                         <div>
                             <a href={viewUrl} target="_blank" rel="noopener noreferrer">

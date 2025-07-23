@@ -124,6 +124,24 @@
 
             <!-- Status Message -->
             <div id="reclaim-status-message" class="reclaim-status-message"></div>
+            
+            <!-- ZK Proof Viewer -->
+            <div id="reclaim-proof-viewer" class="reclaim-proof-viewer" style="display: none;">
+                <div class="reclaim-proof-header">
+                    <span class="reclaim-proof-title">🔐 ZK Proof Generated</span>
+                    <button class="reclaim-copy-icon" data-copy-target="reclaim-proof-content">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M16 4H18C19.1046 4 20 4.89543 20 6V18C20 19.1046 19.1046 20 18 20H10C8.89543 20 8 19.1046 8 18V16M16 4L14 2H6C4.89543 2 4 2.89543 4 4V14C4 15.1046 4.89543 16 6 16H8M16 4V14C16 15.1046 15.1046 16 14 16H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="reclaim-proof-content-container">
+                    <pre id="reclaim-proof-content" class="reclaim-proof-content"></pre>
+                </div>
+                <div class="reclaim-proof-info">
+                    <span class="reclaim-proof-info-text">✅ Zero-knowledge proof generated successfully</span>
+                </div>
+            </div>
         </div>
     </div>
 </div> 

@@ -43,14 +43,14 @@ class OffscreenProofGenerator {
 
   sendReadySignal() {
     try {
-      chrome.runtime.sendMessage({
-        action: MESSAGE_ACTIONS.OFFSCREEN_DOCUMENT_READY,
-        source: MESSAGE_SOURCES.OFFSCREEN,
-        target: MESSAGE_SOURCES.BACKGROUND,
+    chrome.runtime.sendMessage({
+      action: MESSAGE_ACTIONS.OFFSCREEN_DOCUMENT_READY,
+      source: MESSAGE_SOURCES.OFFSCREEN,
+      target: MESSAGE_SOURCES.BACKGROUND,
         data: { ready: true, timestamp: Date.now() }
       }, (response) => {
-        console.log('Offscreen: Sent OFFSCREEN_DOCUMENT_READY signal. Background response:', response);
-      });
+      console.log('Offscreen: Sent OFFSCREEN_DOCUMENT_READY signal. Background response:', response);
+    });
     } catch (error) {
       console.error('Offscreen: Error sending ready signal:', error);
     }
@@ -67,6 +67,13 @@ class OffscreenProofGenerator {
       dataKeys: data ? Object.keys(data) : [],
       timestamp: new Date().toISOString()
     });
+
+    // Handle ping from background script
+    if (action === MESSAGE_ACTIONS.PING_OFFSCREEN && source === MESSAGE_SOURCES.BACKGROUND && target === MESSAGE_SOURCES.OFFSCREEN) {
+      console.log('🏓 OFFScreen: Received ping from background script');
+      sendResponse({ success: true, message: 'Offscreen document is ready', timestamp: new Date().toISOString() });
+      return true;
+    }
 
     // Handle network data from background script
     if (action === MESSAGE_ACTIONS.NETWORK_DATA_FOR_RECLAIM && source === MESSAGE_SOURCES.BACKGROUND && target === MESSAGE_SOURCES.OFFSCREEN) {
@@ -237,7 +244,7 @@ class OffscreenProofGenerator {
                     throw new Error('ReclaimProofRequest.fromJsonString returned null or undefined');
                 }
                 
-                this.currentReclaimInstance = reclaimProofRequest; // Store reference for network data access
+            this.currentReclaimInstance = reclaimProofRequest; // Store reference for network data access
                 console.log('✅ OFFScreen: Successfully created real ReclaimProofRequest from config:', {
                   hasInstance: !!reclaimProofRequest,
                   instanceType: typeof reclaimProofRequest,
@@ -257,8 +264,8 @@ class OffscreenProofGenerator {
             // Step 2: Trigger the verification flow using the real SDK
             console.log('🔄 OFFScreen: Triggering Reclaim flow with triggerReclaimFlow()...');
             try {
-                await reclaimProofRequest.triggerReclaimFlow();
-                console.log('✅ OFFScreen: Successfully triggered Reclaim flow');
+            await reclaimProofRequest.triggerReclaimFlow();
+            console.log('✅ OFFScreen: Successfully triggered Reclaim flow');
             } catch (triggerError) {
                 console.error('❌ OFFScreen: Failed to trigger Reclaim flow:', {
                   error: triggerError.message,
@@ -274,17 +281,17 @@ class OffscreenProofGenerator {
             console.log('📋 OFFScreen: User should: 1) Log in to provider account, 2) Navigate to dashboard, 3) Complete verification');
             
             try {
-                await reclaimProofRequest.startSession({
-                    onSuccess: async (proofs) => {
-                        console.log('🎉 OFFScreen: REAL Reclaim verification SUCCESSFUL!');
+            await reclaimProofRequest.startSession({
+                onSuccess: async (proofs) => {
+                    console.log('🎉 OFFScreen: REAL Reclaim verification SUCCESSFUL!');
                         console.log('📊 OFFScreen: Reclaim SDK proof details:', {
                           proofsCount: proofs.length,
                           proofsType: typeof proofs,
                           isArray: Array.isArray(proofs),
                           firstProofKeys: proofs.length > 0 ? Object.keys(proofs[0]) : []
                         });
-                        console.log('📋 OFFScreen: Real proofs data:', JSON.stringify(proofs, null, 2));
-                        
+                    console.log('📋 OFFScreen: Real proofs data:', JSON.stringify(proofs, null, 2));
+                    
                         // ⭐ MODIFIED: Skip Reclaim SDK proofs and use WootzApp API directly ⭐
                         console.log('🔄 OFFScreen: Skipping Reclaim SDK proofs - using WootzApp API directly...');
                         
@@ -532,11 +539,11 @@ class OffscreenProofGenerator {
                               proofsCount: fallbackResponseData.proofs.length,
                               source: fallbackResponseData.source
                             });
-                            
-                            chrome.runtime.sendMessage({
-                                action: MESSAGE_ACTIONS.GENERATED_PROOF_RESPONSE,
-                                source: MESSAGE_SOURCES.OFFSCREEN,
-                                target: MESSAGE_SOURCES.BACKGROUND,
+                    
+                    chrome.runtime.sendMessage({
+                        action: MESSAGE_ACTIONS.GENERATED_PROOF_RESPONSE,
+                        source: MESSAGE_SOURCES.OFFSCREEN,
+                        target: MESSAGE_SOURCES.BACKGROUND,
                                 data: fallbackResponseData
                             }).then(response => {
                                 console.log('✅ OFFScreen: Sent fallback Reclaim success response to background:', {
@@ -551,8 +558,8 @@ class OffscreenProofGenerator {
                                 });
                             });
                         }
-                    },
-                    onError: async (error) => {
+                },
+                onError: async (error) => {
                         console.error('❌ OFFScreen: REAL Reclaim verification FAILED:', {
                           error: error.message || 'Unknown error',
                           errorStack: error.stack,
@@ -560,18 +567,18 @@ class OffscreenProofGenerator {
                           errorKeys: error ? Object.keys(error) : [],
                           timestamp: new Date().toISOString()
                         });
-                        console.error('❌ OFFScreen: Error details:', error.message || 'Unknown error');
-                        console.error('❌ OFFScreen: Error stack:', error.stack);
-                        
+                    console.error('❌ OFFScreen: Error details:', error.message || 'Unknown error');
+                    console.error('❌ OFFScreen: Error stack:', error.stack);
+                    
                         // Check if this is a timeout error and provide better guidance
-                        if (error.message && error.message.includes('timeout')) {
-                            console.log('⚠️ OFFScreen: Timeout detected - this usually means:');
-                            console.log('   1. User needs to log in to the provider website');
-                            console.log('   2. User needs to navigate to their profile/dashboard');
-                            console.log('   3. Network requests need to be captured by chrome.webRequest');
-                            console.log('   4. The Reclaim SDK needs access to the captured data');
-                            
-                            // Send a more specific error message to help debugging
+                    if (error.message && error.message.includes('timeout')) {
+                        console.log('⚠️ OFFScreen: Timeout detected - this usually means:');
+                        console.log('   1. User needs to log in to the provider website');
+                        console.log('   2. User needs to navigate to their profile/dashboard');
+                        console.log('   3. Network requests need to be captured by chrome.webRequest');
+                        console.log('   4. The Reclaim SDK needs access to the captured data');
+                        
+                        // Send a more specific error message to help debugging
                             const timeoutResponseData = { 
                                 success: false, 
                                 error: `Reclaim SDK timeout: ${error.message}. User may need to complete login and navigation on provider website.`,
@@ -625,11 +632,11 @@ class OffscreenProofGenerator {
                               error: errorResponseData.error,
                               source: errorResponseData.source
                             });
-                            
-                            chrome.runtime.sendMessage({
-                                action: MESSAGE_ACTIONS.GENERATED_PROOF_RESPONSE,
-                                source: MESSAGE_SOURCES.OFFSCREEN,
-                                target: MESSAGE_SOURCES.BACKGROUND,
+                        
+                        chrome.runtime.sendMessage({
+                            action: MESSAGE_ACTIONS.GENERATED_PROOF_RESPONSE,
+                            source: MESSAGE_SOURCES.OFFSCREEN,
+                            target: MESSAGE_SOURCES.BACKGROUND,
                                 data: errorResponseData
                             }).then(response => {
                                 console.log('✅ OFFScreen: Sent error response to background:', {
@@ -644,10 +651,10 @@ class OffscreenProofGenerator {
                                 });
                             });
                         }
-                    }
-                });
-                
-                console.log('✅ OFFScreen: Real Reclaim SDK flow initialized successfully');
+                }
+            });
+            
+            console.log('✅ OFFScreen: Real Reclaim SDK flow initialized successfully');
             } catch (sessionError) {
                 console.error('❌ OFFScreen: Failed to start session:', sessionError);
                 throw new Error(`Failed to start session: ${sessionError.message}`);

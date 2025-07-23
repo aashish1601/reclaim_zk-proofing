@@ -9,6 +9,26 @@ export const API_ENDPOINTS = {
   UPDATE_SESSION_STATUS: () => `${BACKEND_URL}/api/sdk/update/session/`
 };
 
+// Provider configurations
+export const PROVIDERS = {
+  GITHUB: {
+    id: "6d3f6753-7ee6-49ee-a545-62f1b1822ae5", // Gmail provider ID
+    name: "Github",
+    description: "Github UserName",
+    icon: "📧",
+    loginUrl: "https://github.com/settings/profile",
+    dataRequired: "Email address and account information"
+  },
+  LINKEDIN: {
+    id: "a9f1063c-06b7-476a-8410-9ff6e427e637", // Replace with actual LinkedIn provider ID
+    name: "LinkedIn", 
+    description: "Verify your LinkedIn profile",
+    icon: "💼",
+    loginUrl: "https://www.linkedin.com/feed/",
+    dataRequired: "Profile information and connections"
+  }
+};
+
 // Actions used by the Reclaim SDK for various operations
 export const RECLAIM_SDK_ACTIONS = {
   CHECK_EXTENSION: 'RECLAIM_EXTENSION_CHECK',

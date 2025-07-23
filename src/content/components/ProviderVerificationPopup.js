@@ -517,6 +517,47 @@ export function createProviderVerificationPopup(providerName, description, dataR
         }
     }
 
+    // Function to show ZK proof
+    function showZKProof(proofData) {
+        const proofViewer = popup.querySelector('#reclaim-proof-viewer');
+        const proofContent = popup.querySelector('#reclaim-proof-content');
+        
+        if (proofViewer && proofContent) {
+            // Format the proof data for display
+            let formattedProof;
+            if (typeof proofData === 'string') {
+                try {
+                    // Try to parse and format JSON
+                    const parsed = JSON.parse(proofData);
+                    formattedProof = JSON.stringify(parsed, null, 2);
+                } catch {
+                    // If not JSON, display as is
+                    formattedProof = proofData;
+                }
+            } else if (typeof proofData === 'object') {
+                formattedProof = JSON.stringify(proofData, null, 2);
+            } else {
+                formattedProof = String(proofData);
+            }
+            
+            // Set the proof content
+            proofContent.textContent = formattedProof;
+            
+            // Show the proof viewer
+            proofViewer.style.display = 'block';
+            
+            // Scroll to the proof viewer
+            setTimeout(() => {
+                proofViewer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
+            
+            console.log('[Reclaim Debug] ZK proof displayed in popup:', {
+                proofLength: formattedProof.length,
+                hasCopyButton: !!popup.querySelector('[data-copy-target="reclaim-proof-content"]')
+            });
+        }
+    }
+
     // Function to show error state
     function showError(errorMessage) {
         const stepsContainer = popup.querySelector('#reclaim-steps-container');
@@ -576,6 +617,7 @@ export function createProviderVerificationPopup(providerName, description, dataR
         updateStatusMessage,
         showSuccess,
         showError,
+        showZKProof,
         incrementTotalClaims,
         incrementCompletedClaims,
         
@@ -597,18 +639,28 @@ export function createProviderVerificationPopup(providerName, description, dataR
             updateStatusMessage("Generating cryptographic proof...");
         },
         
-        handleProofGenerationSuccess: (requestHash) => {
+        handleProofGenerationSuccess: (requestHash, proofData) => {
             incrementCompletedClaims();
             updateStatusMessage(`ZK proof generated successfully! (${state.completedClaims}/${state.totalClaims})`);
+            
+            // Show the ZK proof if provided
+            if (proofData) {
+                showZKProof(proofData);
+            }
         },
         
         handleProofGenerationFailed: (requestHash) => {
             showError("Failed to generate proof. Please try again.");
         },
         
-        handleProofSubmitted: () => {
+        handleProofSubmitted: (proofData) => {
             state.proofSubmitted = true;
             showSuccess();
+            
+            // Show the ZK proof if provided
+            if (proofData) {
+                showZKProof(proofData);
+            }
         },
         
         handleProofSubmissionFailed: (error) => {

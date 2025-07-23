@@ -128,11 +128,11 @@ ctx.processFilteredRequest = async function(request, criteria, sessionId, loginU
             console.warn('Background: Could not send network data to offscreen (offscreen may not be ready):', err);
         });
 
-        // ⭐ NEW: Start Reclaim SDK flow if we have pending config and network data ⭐
+        // ⭐ ENHANCED: Start Reclaim SDK flow if we have pending config and network data ⭐
         if (ctx.pendingReclaimConfig && networkData.filteredRequests.length > 0) {
-            console.log('🚀 Background: Network data captured - starting Reclaim SDK flow...');
+            console.log('🚀 Background: Network data captured - enhancing Reclaim SDK flow with captured data...');
             
-            // ⭐ NEW: Send popup message to show verification UI ⭐
+            // ⭐ ENHANCED: Send popup message to show verification UI ⭐
             try {
                 chrome.tabs.sendMessage(ctx.activeTabId, {
                     action: ctx.MESSAGE_ACTIONS.SHOW_PROVIDER_VERIFICATION_POPUP,
@@ -151,24 +151,53 @@ ctx.processFilteredRequest = async function(request, criteria, sessionId, loginU
                 console.warn('Background: Error sending popup message:', error);
             }
             
-            try {
-                const offscreenResponse = await new Promise((resolve, reject) => {
-                    chrome.runtime.sendMessage({
-                        action: ctx.MESSAGE_ACTIONS.GENERATE_PROOF,
-                        source: ctx.MESSAGE_SOURCES.BACKGROUND,
-                        target: ctx.MESSAGE_SOURCES.OFFSCREEN,
-                        data: { 
-                            reclaimProofRequestConfig: ctx.pendingReclaimConfig,
-                            claimData: claimData // Pass claim data with extracted parameters
-                        }
-                    }, (response) => {
-                        if (chrome.runtime.lastError) {
-                            reject(new Error('Offscreen communication error: ' + chrome.runtime.lastError.message));
-                        } else {
-                            resolve(response);
-                        }
+            // ⭐ ENHANCED: Retry mechanism for offscreen communication ⭐
+            let retryCount = 0;
+            const maxRetries = 3;
+            
+            while (retryCount < maxRetries) {
+                try {
+                    console.log(`🔄 Background: Attempting offscreen communication (attempt ${retryCount + 1}/${maxRetries})...`);
+                    
+                    const offscreenResponse = await new Promise((resolve, reject) => {
+                        const timeout = setTimeout(() => {
+                            reject(new Error('Offscreen communication timeout'));
+                        }, 5000); // 5 second timeout
+                        
+                        chrome.runtime.sendMessage({
+                            action: ctx.MESSAGE_ACTIONS.GENERATE_PROOF,
+                            source: ctx.MESSAGE_SOURCES.BACKGROUND,
+                            target: ctx.MESSAGE_SOURCES.OFFSCREEN,
+                            data: { 
+                                reclaimProofRequestConfig: ctx.pendingReclaimConfig,
+                                claimData: claimData // Pass claim data with extracted parameters
+                            }
+                        }, (response) => {
+                            clearTimeout(timeout);
+                            if (chrome.runtime.lastError) {
+                                reject(new Error('Offscreen communication error: ' + chrome.runtime.lastError.message));
+                            } else {
+                                resolve(response);
+                            }
+                        });
                     });
-                });
+                    
+                    console.log('✅ Background: Offscreen communication successful:', offscreenResponse);
+                    break; // Success, exit retry loop
+                    
+                } catch (error) {
+                    retryCount++;
+                    console.warn(`⚠️ Background: Offscreen communication attempt ${retryCount} failed:`, error);
+                    
+                    if (retryCount >= maxRetries) {
+                        console.error('❌ Background: All offscreen communication attempts failed');
+                        // Don't throw - let the process continue with network data
+                    } else {
+                        // Wait before retry
+                        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+                    }
+                }
+            }
 
                 console.log('✅ Background: Reclaim SDK flow started:', offscreenResponse);
                 

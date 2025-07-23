@@ -200,7 +200,9 @@ export async function handleMessage(ctx, message, sender, sendResponse) {
                             applicationId: applicationId,
                             callbackUrl: callbackUrl,
                             parameters: parameters,
-                            reclaimProofRequestConfig: reclaimProofRequestConfig // Pass config here for sessionManager to store if needed
+                            reclaimProofRequestConfig: reclaimProofRequestConfig, // Pass config here for sessionManager to store if needed
+                            providerName: data.providerName, // Pass provider name for UI
+                            providerLoginUrl: data.providerLoginUrl // Pass provider-specific login URL
                         });
 
                         ctx.loggerService.log({

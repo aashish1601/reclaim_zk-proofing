@@ -507,7 +507,7 @@ class ReclaimContentScript {
 
         // Update popup with success message
         if (this.verificationPopup) {
-          this.verificationPopup.handleProofSubmitted();
+          this.verificationPopup.handleProofSubmitted(data.proof);
         }
 
         // ⭐ NEW: Now safe to stop network filtering and clear data ⭐
@@ -766,7 +766,7 @@ class ReclaimContentScript {
         }
         
         if (this.verificationPopup) {
-          this.verificationPopup.handleProofGenerationSuccess(data.requestHash);
+          this.verificationPopup.handleProofGenerationSuccess(data.requestHash, data.proof);
         }
         sendResponse({ success: true });
         break;
@@ -780,7 +780,7 @@ class ReclaimContentScript {
 
       case MESSAGE_ACTIONS.PROOF_SUBMITTED:
         if (this.verificationPopup) {
-          this.verificationPopup.handleProofSubmitted();
+          this.verificationPopup.handleProofSubmitted(data.proof);
         }
         sendResponse({ success: true });
         break;
