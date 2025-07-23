@@ -7,6 +7,7 @@ import { MESSAGE_ACTIONS, MESSAGE_SOURCES } from '../utils/constants';
 const PopupApp = () => {
     const [statusMessage, setStatusMessage] = useState('Click the button to start verification.');
     const [loading, setLoading] = useState(false);
+    const [resetting, setResetting] = useState(false);
 
     // ⭐ IMPORTANT: This URL MUST be updated every time Ngrok restarts! ⭐
     // Replace with your CURRENT Ngrok HTTPS forwarding URL + /generate-config
@@ -121,19 +122,33 @@ const PopupApp = () => {
                 setLoading(false);
             }
         } catch (error) {
-            console.error('🔥 Detailed error in popup handlePerformAction:', error);
-            
-            let errorMessage = error.message;
-            if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-                errorMessage = 'Network error: Cannot reach backend. Ensure your backend server is running and its Ngrok tunnel is active and correctly configured.';
-            } else if (error.message.includes('CORS')) {
-                errorMessage = 'CORS error: Your backend needs to explicitly allow requests from this Chrome Extension ID.';
-            } else if (error.message.includes('ngrok')) {
-                errorMessage = error.message;
-            }
-            
-            setStatusMessage(`Error: ${errorMessage}`);
+            console.error('Error in handlePerformAction:', error);
+            setStatusMessage(`Error: ${error.message}`);
+        } finally {
             setLoading(false);
+        }
+    };
+
+    const handleResetSession = async () => {
+        setResetting(true);
+        setStatusMessage('Resetting session state...');
+        
+        try {
+            const response = await sendMessageToBackground(
+                MESSAGE_ACTIONS.RESET_SESSION,
+                {}
+            );
+            
+            if (response.success) {
+                setStatusMessage('Session reset successfully. You can now start a new verification.');
+            } else {
+                setStatusMessage(`Reset failed: ${response.error || 'Unknown error'}`);
+            }
+        } catch (error) {
+            console.error('Error resetting session:', error);
+            setStatusMessage(`Reset error: ${error.message}`);
+        } finally {
+            setResetting(false);
         }
     };
 
@@ -217,9 +232,20 @@ const PopupApp = () => {
             </div>
             <button
                 onClick={handlePerformAction}
-                disabled={loading}
+                disabled={loading || resetting}
             >
                 {loading ? 'Starting...' : 'Start Reclaim Verification'}
+            </button>
+            
+            <button
+                onClick={handleResetSession}
+                disabled={loading || resetting}
+                style={{
+                    backgroundColor: '#dc2626',
+                    marginTop: '10px'
+                }}
+            >
+                {resetting ? 'Resetting...' : 'Reset Session'}
             </button>
             
             {/* Debug section */}

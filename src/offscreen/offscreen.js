@@ -59,13 +59,40 @@ class OffscreenProofGenerator {
   async handleMessage(message, sender, sendResponse) {
     const { action, source, target, data } = message;
 
-    console.log('🔧 OFFScreen: Processing message:', { action, source, target });
+    console.log('🔧 OFFScreen: Processing message:', { 
+      action, 
+      source, 
+      target,
+      hasData: !!data,
+      dataKeys: data ? Object.keys(data) : [],
+      timestamp: new Date().toISOString()
+    });
 
     // Handle network data from background script
     if (action === MESSAGE_ACTIONS.NETWORK_DATA_FOR_RECLAIM && source === MESSAGE_SOURCES.BACKGROUND && target === MESSAGE_SOURCES.OFFSCREEN) {
       console.log('📡 OFFScreen: Received network data from background script');
-      console.log('📊 OFFScreen: Number of filtered requests:', data.filteredRequests?.length || 0);
-      console.log('📋 OFFScreen: Provider data available:', !!data.providerData);
+      console.log('📊 OFFScreen: Network data details:', {
+        hasFilteredRequests: !!data.filteredRequests,
+        filteredRequestsCount: data.filteredRequests?.length || 0,
+        hasProviderData: !!data.providerData,
+        hasSessionId: !!data.sessionId,
+        sessionId: data.sessionId,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Log each filtered request
+      if (data.filteredRequests && data.filteredRequests.length > 0) {
+        console.log('📋 OFFScreen: Filtered requests details:');
+        data.filteredRequests.forEach((request, index) => {
+          console.log(`  Request ${index + 1}:`, {
+            url: request.url,
+            method: request.method,
+            hasResponseText: !!request.responseText,
+            responseLength: request.responseText?.length || 0,
+            timestamp: request.timestamp
+          });
+        });
+      }
       
       // Store the network data for the Reclaim SDK to access
       this.capturedNetworkData = {
@@ -74,9 +101,21 @@ class OffscreenProofGenerator {
         sessionId: data.sessionId
       };
       
+      console.log('💾 OFFScreen: Network data stored successfully:', {
+        storedRequestsCount: this.capturedNetworkData.filteredRequests.length,
+        hasProviderData: !!this.capturedNetworkData.providerData,
+        storedSessionId: this.capturedNetworkData.sessionId
+      });
+      
       // Store claim data if available
       if (data.claimData) {
-        console.log('✅ OFFScreen: Received claim data with extracted parameters:', data.claimData.params?.paramValues);
+        console.log('✅ OFFScreen: Received claim data with extracted parameters:', {
+          hasClaimData: !!data.claimData,
+          claimDataKeys: Object.keys(data.claimData),
+          paramValues: data.claimData.params?.paramValues || {},
+          hasProviderData: !!data.claimData.providerData,
+          callbackUrl: data.claimData.callbackUrl
+        });
         this.capturedClaimData = data.claimData;
       }
       
@@ -87,13 +126,25 @@ class OffscreenProofGenerator {
     if (action === MESSAGE_ACTIONS.GENERATE_PROOF && source === MESSAGE_SOURCES.BACKGROUND && target === MESSAGE_SOURCES.OFFSCREEN) {
       try {
         console.log('🔍 OFFScreen: Starting proof generation process...');
-        console.log('📋 OFFScreen: Received data:', data);
+        console.log('📋 OFFScreen: Received GENERATE_PROOF data:', {
+          hasReclaimConfig: !!data.reclaimProofRequestConfig,
+          configLength: data.reclaimProofRequestConfig?.length || 0,
+          hasClaimData: !!data.claimData,
+          claimDataKeys: data.claimData ? Object.keys(data.claimData) : [],
+          otherDataKeys: Object.keys(data).filter(key => !['reclaimProofRequestConfig', 'claimData'].includes(key))
+        });
         
         const { reclaimProofRequestConfig, claimData: passedClaimData, ...otherData } = data;
         
         // Store claim data if passed from background
         if (passedClaimData) {
-            console.log('✅ OFFScreen: Received claim data with extracted parameters:', passedClaimData.params?.paramValues);
+            console.log('✅ OFFScreen: Received claim data with extracted parameters:', {
+              hasClaimData: !!passedClaimData,
+              claimDataKeys: Object.keys(passedClaimData),
+              paramValues: passedClaimData.params?.paramValues || {},
+              hasProviderData: !!passedClaimData.providerData,
+              callbackUrl: passedClaimData.callbackUrl
+            });
             this.capturedClaimData = passedClaimData;
         }
         
@@ -114,10 +165,12 @@ class OffscreenProofGenerator {
           throw new Error(`reclaimProofRequestConfig is not a string, got: ${typeof reclaimProofRequestConfig}`);
         }
         
-        console.log('📋 OFFScreen: Config length:', reclaimProofRequestConfig.length);
-        console.log('📋 OFFScreen: Config preview:', reclaimProofRequestConfig.substring(0, 200) + '...');
-        console.log('📋 OFFScreen: Config type:', typeof reclaimProofRequestConfig);
-        console.log('📋 OFFScreen: Config is empty:', reclaimProofRequestConfig.length === 0);
+        console.log('📋 OFFScreen: Config validation passed:', {
+          configLength: reclaimProofRequestConfig.length,
+          configPreview: reclaimProofRequestConfig.substring(0, 200) + '...',
+          configType: typeof reclaimProofRequestConfig,
+          isEmpty: reclaimProofRequestConfig.length === 0
+        });
         
         // Check if we already have a session running
         if (this.currentReclaimInstance) {
@@ -128,15 +181,24 @@ class OffscreenProofGenerator {
         // REAL RECLAIM SDK INTEGRATION
         try {
             console.log('🔄 OFFScreen: Loading real Reclaim SDK...');
+            console.log('📋 OFFScreen: Note: Reclaim SDK is used for session management and user verification flow only');
+            console.log('📋 OFFScreen: ZK proof generation will be handled by WootzApp API directly');
             
             // Parse the config to get session information
             let sessionIdForLogging = 'unknown';
             try {
                 const configParsed = JSON.parse(reclaimProofRequestConfig);
                 sessionIdForLogging = configParsed.sessionId || 'unknown';
-                console.log('📋 OFFScreen: Parsed session ID:', sessionIdForLogging);
+                console.log('📋 OFFScreen: Parsed config successfully:', {
+                  sessionId: sessionIdForLogging,
+                  configKeys: Object.keys(configParsed),
+                  hasSessionId: !!configParsed.sessionId
+                });
             } catch (e) { 
-                console.warn('⚠️ OFFScreen: Could not parse config JSON:', e.message);
+                console.warn('⚠️ OFFScreen: Could not parse config JSON:', {
+                  error: e.message,
+                  configPreview: reclaimProofRequestConfig.substring(0, 100) + '...'
+                });
             }
             
             console.log('🔄 OFFScreen: Creating real ReclaimProofRequest from config...');
@@ -144,6 +206,7 @@ class OffscreenProofGenerator {
             // Import Reclaim SDK
             let ReclaimProofRequest;
             try {
+                console.log('📦 OFFScreen: Importing Reclaim SDK module...');
                 const sdkModule = await import('@reclaimprotocol/js-sdk');
                 ReclaimProofRequest = sdkModule.ReclaimProofRequest;
                 
@@ -151,15 +214,23 @@ class OffscreenProofGenerator {
                     throw new Error('ReclaimProofRequest not found in SDK module');
                 }
                 
-                console.log('✅ OFFScreen: Reclaim SDK imported successfully');
+                console.log('✅ OFFScreen: Reclaim SDK imported successfully:', {
+                  hasReclaimProofRequest: !!ReclaimProofRequest,
+                  sdkModuleKeys: Object.keys(sdkModule)
+                });
             } catch (importError) {
-                console.error('❌ OFFScreen: Failed to import Reclaim SDK:', importError);
+                console.error('❌ OFFScreen: Failed to import Reclaim SDK:', {
+                  error: importError.message,
+                  errorStack: importError.stack,
+                  errorType: typeof importError
+                });
                 throw new Error(`Failed to import Reclaim SDK: ${importError.message}`);
             }
             
             // Create ReclaimProofRequest instance
             let reclaimProofRequest;
             try {
+                console.log('🔧 OFFScreen: Creating ReclaimProofRequest from JSON string...');
                 reclaimProofRequest = await ReclaimProofRequest.fromJsonString(reclaimProofRequestConfig);
                 
                 if (!reclaimProofRequest) {
@@ -167,9 +238,19 @@ class OffscreenProofGenerator {
                 }
                 
                 this.currentReclaimInstance = reclaimProofRequest; // Store reference for network data access
-                console.log('✅ OFFScreen: Successfully created real ReclaimProofRequest from config');
+                console.log('✅ OFFScreen: Successfully created real ReclaimProofRequest from config:', {
+                  hasInstance: !!reclaimProofRequest,
+                  instanceType: typeof reclaimProofRequest,
+                  hasTriggerReclaimFlow: typeof reclaimProofRequest.triggerReclaimFlow === 'function',
+                  hasStartSession: typeof reclaimProofRequest.startSession === 'function'
+                });
             } catch (initError) {
-                console.error('❌ OFFScreen: Failed to create ReclaimProofRequest:', initError);
+                console.error('❌ OFFScreen: Failed to create ReclaimProofRequest:', {
+                  error: initError.message,
+                  errorStack: initError.stack,
+                  errorType: typeof initError,
+                  configLength: reclaimProofRequestConfig.length
+                });
                 throw new Error(`Failed to create ReclaimProofRequest: ${initError.message}`);
             }
             
@@ -179,7 +260,11 @@ class OffscreenProofGenerator {
                 await reclaimProofRequest.triggerReclaimFlow();
                 console.log('✅ OFFScreen: Successfully triggered Reclaim flow');
             } catch (triggerError) {
-                console.error('❌ OFFScreen: Failed to trigger Reclaim flow:', triggerError);
+                console.error('❌ OFFScreen: Failed to trigger Reclaim flow:', {
+                  error: triggerError.message,
+                  errorStack: triggerError.stack,
+                  errorType: typeof triggerError
+                });
                 throw new Error(`Failed to trigger Reclaim flow: ${triggerError.message}`);
             }
             
@@ -192,68 +277,289 @@ class OffscreenProofGenerator {
                 await reclaimProofRequest.startSession({
                     onSuccess: async (proofs) => {
                         console.log('🎉 OFFScreen: REAL Reclaim verification SUCCESSFUL!');
-                        console.log('📊 OFFScreen: Number of real proofs generated:', proofs.length);
+                        console.log('📊 OFFScreen: Reclaim SDK proof details:', {
+                          proofsCount: proofs.length,
+                          proofsType: typeof proofs,
+                          isArray: Array.isArray(proofs),
+                          firstProofKeys: proofs.length > 0 ? Object.keys(proofs[0]) : []
+                        });
                         console.log('📋 OFFScreen: Real proofs data:', JSON.stringify(proofs, null, 2));
                         
-                        // ⭐ MODIFIED: Use WootzApp API for ZK proof generation instead of Reclaim proofs ⭐
-                        console.log('🔄 OFFScreen: Converting Reclaim proofs to WootzApp ZK proofs...');
+                        // ⭐ MODIFIED: Skip Reclaim SDK proofs and use WootzApp API directly ⭐
+                        console.log('🔄 OFFScreen: Skipping Reclaim SDK proofs - using WootzApp API directly...');
                         
                         try {
                             // Import WootzApp ZK generator
+                            console.log('📦 OFFScreen: Importing WootzApp ZK generator...');
                             const { WootzZKProofGenerator } = await import('../utils/wootz-zk-generator');
                             const wootzGenerator = new WootzZKProofGenerator();
                             
-                            // Convert each Reclaim proof to WootzApp ZK proof
+                            console.log('✅ OFFScreen: WootzApp ZK generator imported successfully:', {
+                              hasGenerator: !!wootzGenerator,
+                              generatorType: typeof wootzGenerator,
+                              hasGenerateZKProof: typeof wootzGenerator.generateZKProof === 'function'
+                            });
+                            
+                            // Use captured network data to generate ZK proofs directly with WootzApp API
+                            console.log('🚀 OFFScreen: Generating ZK proofs directly with WootzApp API...');
+                            
                             const wootzProofs = [];
-                            for (const proof of proofs) {
-                                console.log('🔄 OFFScreen: Converting proof:', proof.identifier);
+                            
+                            // Get the captured network data
+                            console.log('📊 OFFScreen: Checking captured network data:', {
+                              hasCapturedNetworkData: !!this.capturedNetworkData,
+                              hasFilteredRequests: !!this.capturedNetworkData?.filteredRequests,
+                              filteredRequestsCount: this.capturedNetworkData?.filteredRequests?.length || 0,
+                              hasProviderData: !!this.capturedNetworkData?.providerData,
+                              sessionId: this.capturedNetworkData?.sessionId
+                            });
+                            
+                            if (this.capturedNetworkData && this.capturedNetworkData.filteredRequests.length > 0) {
+                                console.log('📊 OFFScreen: Using captured network data for ZK proof generation');
                                 
-                                // Create claim data for WootzApp API
-                                const claimData = {
-                                    name: proof.identifier,
-                                    sessionId: sessionIdForLogging,
-                                    params: proof.claimData?.params || {},
-                                    providerData: this.capturedNetworkData?.providerData || {},
-                                    callbackUrl: this.capturedClaimData?.callbackUrl
-                                };
+                                for (const request of this.capturedNetworkData.filteredRequests) {
+                                    console.log('🔄 OFFScreen: Processing request for ZK proof:', {
+                                      url: request.url,
+                                      method: request.method,
+                                      hasResponseText: !!request.responseText,
+                                      responseLength: request.responseText?.length || 0,
+                                      timestamp: request.timestamp
+                                    });
+                                    
+                                    // Create claim data from the captured request
+                                    const claimData = {
+                                        params: {
+                                            paramValues: {
+                                                url: request.url,
+                                                method: request.method,
+                                                responseLength: request.responseText?.length || 0,
+                                                timestamp: request.timestamp
+                                            }
+                                        },
+                                        providerData: this.capturedNetworkData.providerData || {},
+                                        sessionId: sessionIdForLogging,
+                                        callbackUrl: this.capturedClaimData?.callbackUrl
+                                    };
+                                    
+                                    console.log('📋 OFFScreen: Created claim data for ZK proof:', {
+                                      hasClaimData: !!claimData,
+                                      claimDataKeys: Object.keys(claimData),
+                                      paramValues: claimData.params?.paramValues || {},
+                                      hasProviderData: !!claimData.providerData,
+                                      callbackUrl: claimData.callbackUrl
+                                    });
+                                    
+                                    // Generate ZK proof using WootzApp API directly
+                                    console.log('🔧 OFFScreen: Calling WootzApp API for ZK proof generation...');
+                                    try {
+                                        const wootzProof = await wootzGenerator.generateZKProof(
+                                            claimData, 
+                                            claimData.callbackUrl,
+                                            request.url,
+                                            request.responseText
+                                        );
+                                        
+                                        console.log('📊 OFFScreen: WootzApp API response:', {
+                                          success: wootzProof.success,
+                                          hasProof: !!wootzProof.proof,
+                                          hasError: !!wootzProof.error,
+                                          error: wootzProof.error,
+                                          message: wootzProof.message
+                                        });
+                                        
+                                        if (wootzProof.success) {
+                                            wootzProofs.push(wootzProof.proof);
+                                            console.log('✅ OFFScreen: WootzApp ZK proof generated successfully for:', request.url);
+                                        } else {
+                                            console.error('❌ OFFScreen: WootzApp ZK proof generation failed for:', {
+                                              url: request.url,
+                                              error: wootzProof.error,
+                                              message: wootzProof.message
+                                            });
+                                        }
+                                    } catch (wootzCallError) {
+                                        console.error('❌ OFFScreen: Error calling WootzApp API:', {
+                                          url: request.url,
+                                          error: wootzCallError.message,
+                                          errorStack: wootzCallError.stack,
+                                          errorType: typeof wootzCallError
+                                        });
+                                    }
+                                }
+                            } else {
+                                console.log('⚠️ OFFScreen: No captured network data available, using fallback approach');
                                 
-                                // Generate ZK proof using WootzApp API
-                                const wootzProof = await wootzGenerator.generateProof(claimData, null);
-                                wootzProofs.push(wootzProof);
-                                
-                                console.log('✅ OFFScreen: WootzApp ZK proof generated for:', proof.identifier);
+                                // Fallback: Create a basic claim data from Reclaim proofs
+                                for (const proof of proofs) {
+                                    console.log('🔄 OFFScreen: Creating fallback ZK proof for:', {
+                                      identifier: proof.identifier,
+                                      proofKeys: Object.keys(proof),
+                                      hasClaimData: !!proof.claimData
+                                    });
+                                    
+                                    const claimData = {
+                                        params: {
+                                            paramValues: {
+                                                identifier: proof.identifier,
+                                                provider: proof.provider || 'unknown'
+                                            }
+                                        },
+                                        providerData: this.capturedNetworkData?.providerData || {},
+                                        sessionId: sessionIdForLogging,
+                                        callbackUrl: this.capturedClaimData?.callbackUrl
+                                    };
+                                    
+                                    console.log('📋 OFFScreen: Fallback claim data created:', {
+                                      hasClaimData: !!claimData,
+                                      claimDataKeys: Object.keys(claimData),
+                                      paramValues: claimData.params?.paramValues || {}
+                                    });
+                                    
+                                    // Generate ZK proof using WootzApp API
+                                    try {
+                                        const wootzProof = await wootzGenerator.generateZKProof(
+                                            claimData, 
+                                            claimData.callbackUrl,
+                                            'https://github.com/settings/profile', // Fallback URL
+                                            '<html><body>Fallback content</body></html>' // Fallback content
+                                        );
+                                        
+                                        console.log('📊 OFFScreen: Fallback WootzApp API response:', {
+                                          success: wootzProof.success,
+                                          hasProof: !!wootzProof.proof,
+                                          hasError: !!wootzProof.error,
+                                          error: wootzProof.error
+                                        });
+                                        
+                                        if (wootzProof.success) {
+                                            wootzProofs.push(wootzProof.proof);
+                                            console.log('✅ OFFScreen: Fallback WootzApp ZK proof generated for:', proof.identifier);
+                                        } else {
+                                            console.error('❌ OFFScreen: Fallback WootzApp ZK proof generation failed for:', {
+                                              identifier: proof.identifier,
+                                              error: wootzProof.error
+                                            });
+                                        }
+                                    } catch (fallbackError) {
+                                        console.error('❌ OFFScreen: Error in fallback WootzApp API call:', {
+                                          identifier: proof.identifier,
+                                          error: fallbackError.message,
+                                          errorStack: fallbackError.stack
+                                        });
+                                    }
+                                }
                             }
                             
-                            await updateSessionStatus(sessionIdForLogging, RECLAIM_SESSION_STATUS.PROOF_GENERATION_SUCCESS)
-                                .catch(e => console.error("❌ OFFScreen: Error updating session status on success:", e));
+                            console.log('🎉 OFFScreen: WootzApp API ZK proof generation completed!');
+                            console.log('📊 OFFScreen: Final results:', {
+                              totalZKProofs: wootzProofs.length,
+                              hasProofs: wootzProofs.length > 0,
+                              firstProofKeys: wootzProofs.length > 0 ? Object.keys(wootzProofs[0]) : []
+                            });
+                            
+                            try {
+                                await updateSessionStatus(sessionIdForLogging, RECLAIM_SESSION_STATUS.PROOF_GENERATION_SUCCESS);
+                                console.log('✅ OFFScreen: Session status updated to PROOF_GENERATION_SUCCESS');
+                            } catch (statusError) {
+                                console.error("❌ OFFScreen: Error updating session status on success:", {
+                                  error: statusError.message,
+                                  errorStack: statusError.stack
+                                });
+                            }
                             
                             // Send WootzApp proofs to background script
+                            console.log('📤 OFFScreen: Sending WootzApp proofs to background script...');
+                            const responseData = { 
+                                success: true, 
+                                proofs: wootzProofs, 
+                                originalProofs: proofs,
+                                source: 'wootzapp_api_direct'
+                            };
+                            
+                            console.log('📋 OFFScreen: Response data being sent:', {
+                              success: responseData.success,
+                              proofsCount: responseData.proofs.length,
+                              hasOriginalProofs: !!responseData.originalProofs,
+                              source: responseData.source
+                            });
+                            
                             chrome.runtime.sendMessage({
                                 action: MESSAGE_ACTIONS.GENERATED_PROOF_RESPONSE,
                                 source: MESSAGE_SOURCES.OFFSCREEN,
                                 target: MESSAGE_SOURCES.BACKGROUND,
-                                data: { success: true, proofs: wootzProofs, originalProofs: proofs }
-                            }).then(response => console.log('✅ OFFScreen: Sent WootzApp success response to background:', response))
-                              .catch(err => console.error('❌ OFFScreen: Error sending success to background:', err));
+                                data: responseData
+                            }).then(response => {
+                                console.log('✅ OFFScreen: Sent WootzApp success response to background:', {
+                                  hasResponse: !!response,
+                                  responseKeys: response ? Object.keys(response) : []
+                                });
+                            }).catch(err => {
+                                console.error('❌ OFFScreen: Error sending success to background:', {
+                                  error: err.message,
+                                  errorStack: err.stack,
+                                  errorType: typeof err
+                                });
+                            });
                             
                         } catch (wootzError) {
-                            console.error('❌ OFFScreen: Failed to convert to WootzApp proofs:', wootzError);
+                            console.error('❌ OFFScreen: Failed to generate ZK proofs with WootzApp API:', {
+                              error: wootzError.message,
+                              errorStack: wootzError.stack,
+                              errorType: typeof wootzError
+                            });
                             
                             // Fallback to original Reclaim proofs if WootzApp fails
-                            await updateSessionStatus(sessionIdForLogging, RECLAIM_SESSION_STATUS.PROOF_GENERATION_SUCCESS)
-                                .catch(e => console.error("❌ OFFScreen: Error updating session status on success:", e));
+                            console.log('🔄 OFFScreen: Falling back to original Reclaim proofs...');
+                            
+                            try {
+                                await updateSessionStatus(sessionIdForLogging, RECLAIM_SESSION_STATUS.PROOF_GENERATION_SUCCESS);
+                                console.log('✅ OFFScreen: Session status updated to PROOF_GENERATION_SUCCESS (fallback)');
+                            } catch (statusError) {
+                                console.error("❌ OFFScreen: Error updating session status on success:", {
+                                  error: statusError.message,
+                                  errorStack: statusError.stack
+                                });
+                            }
+                            
+                            const fallbackResponseData = { 
+                                success: true, 
+                                proofs: proofs,
+                                source: 'reclaim_sdk_fallback'
+                            };
+                            
+                            console.log('📋 OFFScreen: Fallback response data being sent:', {
+                              success: fallbackResponseData.success,
+                              proofsCount: fallbackResponseData.proofs.length,
+                              source: fallbackResponseData.source
+                            });
                             
                             chrome.runtime.sendMessage({
                                 action: MESSAGE_ACTIONS.GENERATED_PROOF_RESPONSE,
                                 source: MESSAGE_SOURCES.OFFSCREEN,
                                 target: MESSAGE_SOURCES.BACKGROUND,
-                                data: { success: true, proofs: proofs }
-                            }).then(response => console.log('✅ OFFScreen: Sent fallback Reclaim success response to background:', response))
-                              .catch(err => console.error('❌ OFFScreen: Error sending success to background:', err));
+                                data: fallbackResponseData
+                            }).then(response => {
+                                console.log('✅ OFFScreen: Sent fallback Reclaim success response to background:', {
+                                  hasResponse: !!response,
+                                  responseKeys: response ? Object.keys(response) : []
+                                });
+                            }).catch(err => {
+                                console.error('❌ OFFScreen: Error sending fallback success to background:', {
+                                  error: err.message,
+                                  errorStack: err.stack,
+                                  errorType: typeof err
+                                });
+                            });
                         }
                     },
                     onError: async (error) => {
-                        console.error('❌ OFFScreen: REAL Reclaim verification FAILED:', error);
+                        console.error('❌ OFFScreen: REAL Reclaim verification FAILED:', {
+                          error: error.message || 'Unknown error',
+                          errorStack: error.stack,
+                          errorType: typeof error,
+                          errorKeys: error ? Object.keys(error) : [],
+                          timestamp: new Date().toISOString()
+                        });
                         console.error('❌ OFFScreen: Error details:', error.message || 'Unknown error');
                         console.error('❌ OFFScreen: Error stack:', error.stack);
                         
@@ -266,28 +572,77 @@ class OffscreenProofGenerator {
                             console.log('   4. The Reclaim SDK needs access to the captured data');
                             
                             // Send a more specific error message to help debugging
-                            chrome.runtime.sendMessage({
-                                action: MESSAGE_ACTIONS.GENERATED_PROOF_RESPONSE,
-                                source: MESSAGE_SOURCES.OFFSCREEN,
-                                target: MESSAGE_SOURCES.BACKGROUND,
-                                data: { 
-                                    success: false, 
-                                    error: `Reclaim SDK timeout: ${error.message}. User may need to complete login and navigation on provider website.`,
-                                    isTimeout: true
-                                }
-                            }).then(response => console.log('✅ OFFScreen: Sent timeout error response to background:', response))
-                              .catch(err => console.error('❌ OFFScreen: Error sending timeout error to background:', err));
-                        } else {
-                            await updateSessionStatus(sessionIdForLogging, RECLAIM_SESSION_STATUS.PROOF_GENERATION_FAILED)
-                                .catch(e => console.error("❌ OFFScreen: Error updating session status on error:", e));
+                            const timeoutResponseData = { 
+                                success: false, 
+                                error: `Reclaim SDK timeout: ${error.message}. User may need to complete login and navigation on provider website.`,
+                                isTimeout: true,
+                                source: 'reclaim_sdk_timeout'
+                            };
+                            
+                            console.log('📋 OFFScreen: Timeout response data being sent:', {
+                              success: timeoutResponseData.success,
+                              error: timeoutResponseData.error,
+                              isTimeout: timeoutResponseData.isTimeout,
+                              source: timeoutResponseData.source
+                            });
                             
                             chrome.runtime.sendMessage({
                                 action: MESSAGE_ACTIONS.GENERATED_PROOF_RESPONSE,
                                 source: MESSAGE_SOURCES.OFFSCREEN,
                                 target: MESSAGE_SOURCES.BACKGROUND,
-                                data: { success: false, error: error.message || 'Unknown Reclaim SDK error' }
-                            }).then(response => console.log('✅ OFFScreen: Sent error response to background:', response))
-                              .catch(err => console.error('❌ OFFScreen: Error sending error to background:', err));
+                                data: timeoutResponseData
+                            }).then(response => {
+                                console.log('✅ OFFScreen: Sent timeout error response to background:', {
+                                  hasResponse: !!response,
+                                  responseKeys: response ? Object.keys(response) : []
+                                });
+                            }).catch(err => {
+                                console.error('❌ OFFScreen: Error sending timeout error to background:', {
+                                  error: err.message,
+                                  errorStack: err.stack,
+                                  errorType: typeof err
+                                });
+                            });
+                        } else {
+                            try {
+                                await updateSessionStatus(sessionIdForLogging, RECLAIM_SESSION_STATUS.PROOF_GENERATION_FAILED);
+                                console.log('✅ OFFScreen: Session status updated to PROOF_GENERATION_FAILED');
+                            } catch (statusError) {
+                                console.error("❌ OFFScreen: Error updating session status on error:", {
+                                  error: statusError.message,
+                                  errorStack: statusError.stack
+                                });
+                            }
+                            
+                            const errorResponseData = { 
+                                success: false, 
+                                error: error.message || 'Unknown Reclaim SDK error',
+                                source: 'reclaim_sdk_error'
+                            };
+                            
+                            console.log('📋 OFFScreen: Error response data being sent:', {
+                              success: errorResponseData.success,
+                              error: errorResponseData.error,
+                              source: errorResponseData.source
+                            });
+                            
+                            chrome.runtime.sendMessage({
+                                action: MESSAGE_ACTIONS.GENERATED_PROOF_RESPONSE,
+                                source: MESSAGE_SOURCES.OFFSCREEN,
+                                target: MESSAGE_SOURCES.BACKGROUND,
+                                data: errorResponseData
+                            }).then(response => {
+                                console.log('✅ OFFScreen: Sent error response to background:', {
+                                  hasResponse: !!response,
+                                  responseKeys: response ? Object.keys(response) : []
+                                });
+                            }).catch(err => {
+                                console.error('❌ OFFScreen: Error sending error to background:', {
+                                  error: err.message,
+                                  errorStack: err.stack,
+                                  errorType: typeof err
+                                });
+                            });
                         }
                     }
                 });

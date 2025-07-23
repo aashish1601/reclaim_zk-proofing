@@ -99,4 +99,7 @@ export const MESSAGE_ACTIONS = {
  
  // ⭐ NEW: Page data actions ⭐
  GET_PAGE_DATA: 'GET_PAGE_DATA',
+ 
+ // ⭐ NEW: Session management actions ⭐
+ RESET_SESSION: 'RESET_SESSION',
 };

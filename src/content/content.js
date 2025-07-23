@@ -2650,3 +2650,59 @@ if (typeof window !== 'undefined') {
   console.log('  - testWithClaimData() - Test with claim data');
   console.log('  - wootzGenerator - Access the generator instance');
 }
+
+// Add cleanup function and page unload listener
+function cleanupContentScript() {
+  console.log('🧹 [CONTENT-CLEANUP] Cleaning up content script...');
+  
+  // Remove verification popup if it exists
+  if (contentScript && contentScript.verificationPopup) {
+    const popup = contentScript.verificationPopup.element;
+    if (popup && popup.parentNode) {
+      popup.parentNode.removeChild(popup);
+      console.log('✅ [CONTENT-CLEANUP] Removed verification popup');
+    }
+  }
+  
+  // Stop network filtering
+  if (contentScript) {
+    contentScript.stopNetworkFiltering();
+    console.log('✅ [CONTENT-CLEANUP] Stopped network filtering');
+  }
+  
+  // Clean up intercepted data
+  if (contentScript) {
+    contentScript.cleanupInterceptedData();
+    console.log('✅ [CONTENT-CLEANUP] Cleaned up intercepted data');
+  }
+  
+  // Remove debug panel if it exists
+  const debugPanel = document.getElementById('reclaim-debug-panel');
+  if (debugPanel) {
+    debugPanel.remove();
+    console.log('✅ [CONTENT-CLEANUP] Removed debug panel');
+  }
+  
+  // Remove manual trigger button if it exists
+  const triggerButton = document.getElementById('reclaim-manual-trigger');
+  if (triggerButton) {
+    triggerButton.remove();
+    console.log('✅ [CONTENT-CLEANUP] Removed manual trigger button');
+  }
+  
+  console.log('✅ [CONTENT-CLEANUP] Content script cleanup completed');
+}
+
+// Listen for page unload events
+window.addEventListener('beforeunload', (event) => {
+  console.log('🚪 [CONTENT-CLEANUP] Page unloading - cleaning up...');
+  cleanupContentScript();
+});
+
+// Listen for page visibility changes
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    console.log('👁️ [CONTENT-CLEANUP] Page hidden - cleaning up...');
+    cleanupContentScript();
+  }
+});

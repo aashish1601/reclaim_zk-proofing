@@ -115,6 +115,55 @@ export async function handleMessage(ctx, message, sender, sendResponse) {
                         return;
                     }
 
+                    // ⭐ ENHANCED: Check if session is already in progress with better logic ⭐
+                    const hasActiveSession = ctx.sessionId || ctx.activeTabId || ctx.providerData;
+                    const hasActiveTab = ctx.activeTabId && ctx.managedTabs.has(ctx.activeTabId);
+                    
+                    if (hasActiveSession && hasActiveTab) {
+                        console.log('⚠️ [MESSAGE-ROUTER] Session already in progress - rejecting new verification request:', {
+                            existingSessionId: ctx.sessionId,
+                            existingActiveTabId: ctx.activeTabId,
+                            hasProviderData: !!ctx.providerData,
+                            hasActiveTab: hasActiveTab,
+                            newSessionId: sessionId,
+                            timestamp: new Date().toISOString()
+                        });
+                        
+                        sendResponse({ 
+                            success: false, 
+                            error: 'Verification session already in progress. Please close the current session first.' 
+                        });
+                        return;
+                    } else if (hasActiveSession && !hasActiveTab) {
+                        // Session state exists but no active tab - clean up stale state
+                        console.log('🧹 [MESSAGE-ROUTER] Cleaning up stale session state:', {
+                            existingSessionId: ctx.sessionId,
+                            existingActiveTabId: ctx.activeTabId,
+                            hasProviderData: !!ctx.providerData,
+                            hasActiveTab: hasActiveTab,
+                            newSessionId: sessionId,
+                            timestamp: new Date().toISOString()
+                        });
+                        
+                        // Reset session state to allow new verification
+                        ctx.activeTabId = null;
+                        ctx.sessionId = null;
+                        ctx.providerData = null;
+                        ctx.parameters = null;
+                        ctx.httpProviderId = null;
+                        ctx.appId = null;
+                        ctx.callbackUrl = null;
+                        ctx.generatedProofs = new Map();
+                        ctx.filteredRequests = new Map();
+                        ctx.initPopupMessage = new Map();
+                        ctx.providerDataMessage = new Map();
+                        ctx.firstRequestReceived = false;
+                        ctx.isProcessingQueue = false;
+                        ctx.proofGenerationQueue = [];
+                        
+                        console.log('✅ [MESSAGE-ROUTER] Stale session state cleaned up - proceeding with new verification');
+                    }
+
                     ctx.loggerService.log({
                         message: `🚀 BACKGROUND: Starting verification process from ${source}`,
                         type: ctx.LOG_TYPES.BACKGROUND,
@@ -510,25 +559,14 @@ export async function handleMessage(ctx, message, sender, sendResponse) {
                         sendResponse({ success: true, result: ctx.filteredRequests.get(data.criteria.requestHash) });
                     } else {
                         console.log('🚀 [MESSAGE-ROUTER] Processing new filtered request...');
-                                            // ⭐ ADDED: Use tab-specific state ⭐
-                    const tabId = sender.tab?.id;
-                    const tabState = ctx.getTabState(tabId);
-                    
-                    console.log('📋 [MESSAGE-ROUTER] Storing request in tab-specific filteredRequests Map:', {
-                        tabId: tabId,
-                        criteriaHash: data.criteria.requestHash,
-                        requestUrl: data.request?.url,
-                        hasResponse: !!data.request?.responseText,
-                        responseLength: data.request?.responseText?.length || 0
-                    });
-                    
-                    // Store in tab-specific state
-                    tabState.filteredRequests.set(data.criteria.requestHash, data.request);
-                    
-                    // Also store in global state for backward compatibility
-                    ctx.filteredRequests.set(data.criteria.requestHash, data.request);
-                    
-                    const result = await ctx.processFilteredRequest(data.request, data.criteria, data.sessionId, data.loginUrl);
+                        console.log('📋 [MESSAGE-ROUTER] Storing request in filteredRequests Map:', {
+                            criteriaHash: data.criteria.requestHash,
+                            requestUrl: data.request?.url,
+                            hasResponse: !!data.request?.responseText,
+                            responseLength: data.request?.responseText?.length || 0
+                        });
+                        ctx.filteredRequests.set(data.criteria.requestHash, data.request);
+                        const result = await ctx.processFilteredRequest(data.request, data.criteria, data.sessionId, data.loginUrl);
                         console.log('✅ [MESSAGE-ROUTER] ProcessFilteredRequest completed:', result);
                         sendResponse({ success: true, result });
                     }
@@ -652,6 +690,69 @@ export async function handleMessage(ctx, message, sender, sendResponse) {
                             providerId: data?.providerData?.httpProviderId || 'unknown',
                             appId: ctx.appId || 'unknown'
                         });
+                        sendResponse({ 
+                            success: false, 
+                            error: error.message 
+                        });
+                    }
+                } else {
+                    sendResponse({ success: false, error: 'Action not supported' });
+                }
+                return true; // For async response
+            case ctx.MESSAGE_ACTIONS.RESET_SESSION:
+                if (source === ctx.MESSAGE_SOURCES.POPUP && target === ctx.MESSAGE_SOURCES.BACKGROUND) {
+                    try {
+                        console.log('🔄 [MESSAGE-ROUTER] Resetting session state from popup request...');
+                        
+                        // Stop network data sync
+                        if (ctx.stopNetworkDataSync) {
+                            ctx.stopNetworkDataSync();
+                        }
+                        
+                        // Clear all timers
+                        if (ctx.sessionTimerManager) {
+                            ctx.sessionTimerManager.clearAllTimers();
+                        }
+                        
+                        // Close managed tabs
+                        for (const tabId of ctx.managedTabs) {
+                            try {
+                                chrome.tabs.remove(tabId);
+                            } catch (error) {
+                                console.log(`⚠️ [MESSAGE-ROUTER] Error closing tab ${tabId}:`, error);
+                            }
+                        }
+                        ctx.managedTabs.clear();
+                        
+                        // Reset session variables
+                        ctx.activeTabId = null;
+                        ctx.sessionId = null;
+                        ctx.providerData = null;
+                        ctx.parameters = null;
+                        ctx.httpProviderId = null;
+                        ctx.appId = null;
+                        ctx.callbackUrl = null;
+                        ctx.generatedProofs = new Map();
+                        ctx.filteredRequests = new Map();
+                        ctx.initPopupMessage = new Map();
+                        ctx.providerDataMessage = new Map();
+                        ctx.firstRequestReceived = false;
+                        ctx.isProcessingQueue = false;
+                        ctx.proofGenerationQueue = [];
+                        
+                        // Unregister request interceptors
+                        if (ctx.unregisterRequestInterceptors) {
+                            ctx.unregisterRequestInterceptors();
+                        }
+                        
+                        console.log('✅ [MESSAGE-ROUTER] Session state reset completed');
+                        
+                        sendResponse({ 
+                            success: true, 
+                            message: 'Session state reset successfully' 
+                        });
+                    } catch (error) {
+                        console.error('❌ [MESSAGE-ROUTER] Error resetting session:', error);
                         sendResponse({ 
                             success: false, 
                             error: error.message 

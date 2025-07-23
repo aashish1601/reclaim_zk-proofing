@@ -148,8 +148,8 @@ export const extractParamsFromResponse = (responseText, responseMatches, respons
                             console.log(`🔍 [PARAM-EXTRACTOR] Trying regex:`, redaction.regex);
                             const regexMatch = responseText.match(new RegExp(redaction.regex));
                             console.log(`📊 [PARAM-EXTRACTOR] Regex match result:`, regexMatch);
-                            if (regexMatch && regexMatch.length > 1) {
-                                extractedValue = regexMatch[1];
+                        if (regexMatch && regexMatch.length > 1) {
+                            extractedValue = regexMatch[1];
                             }
                         } catch (error) {
                             debugLogger.error(DebugLogType.CLAIM, `[PARAM-EXTRACTOR] Error extracting with regex ${redaction.regex}:`, error);

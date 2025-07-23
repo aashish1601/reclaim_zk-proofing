@@ -36,9 +36,6 @@ const ctx = {
     firstRequestReceived: false,
     initPopupMessage: new Map(),
     providerDataMessage: new Map(),
-    // ⭐ ADDED: Tab-specific state management ⭐
-    tabStates: new Map(), // Map of tabId -> state object
-    currentTabId: null,
     // Timer
     sessionTimerManager: new SessionTimerManager(),
     // Constants and dependencies
@@ -73,36 +70,6 @@ ctx.failSession = (...args) => sessionManager.failSession(ctx, ...args);
 ctx.submitProofs = (...args) => sessionManager.submitProofs(ctx, ...args);
 ctx.stopNetworkDataSync = stopNetworkDataSync;
 
-// ⭐ ADDED: Tab state management functions ⭐
-ctx.getTabState = function(tabId) {
-    if (!ctx.tabStates.has(tabId)) {
-        ctx.tabStates.set(tabId, {
-            sessionId: null,
-            providerData: null,
-            parameters: null,
-            httpProviderId: null,
-            callbackUrl: null,
-            filteredRequests: new Map(),
-            firstRequestReceived: false,
-            verificationStarted: false,
-            proofGenerated: false
-        });
-    }
-    return ctx.tabStates.get(tabId);
-};
-
-ctx.resetTabState = function(tabId) {
-    console.log('🔄 Background: Resetting state for tab:', tabId);
-    ctx.tabStates.delete(tabId);
-    ctx.getTabState(tabId); // Recreate fresh state
-    console.log('✅ Background: Tab state reset complete for tab:', tabId);
-};
-
-ctx.setCurrentTab = function(tabId) {
-    ctx.currentTabId = tabId;
-    console.log('📱 Background: Current tab set to:', tabId);
-};
-
 // Add processFilteredRequest to context (moved from class)
 ctx.processFilteredRequest = async function(request, criteria, sessionId, loginUrl) {
     try {
@@ -121,17 +88,13 @@ ctx.processFilteredRequest = async function(request, criteria, sessionId, loginU
 
         // ⭐ CRITICAL: Send captured network data to offscreen for Reclaim SDK ⭐
         // This ensures the Reclaim SDK has access to the network data it needs
-        // ⭐ ENHANCED: Use tab-specific state for filtered requests ⭐
-        const tabId = ctx.currentTabId || ctx.activeTabId;
-        const tabState = ctx.getTabState(tabId);
-        
-        const allFilteredRequests = Array.from(tabState.filteredRequests.values());
+        // ⭐ ENHANCED: Filter out requests without response bodies to prevent SDK timeout ⭐
+        const allFilteredRequests = Array.from(ctx.filteredRequests.values());
         const requestsWithResponse = allFilteredRequests.filter(request => 
             request.responseText && request.responseText.length > 0
         );
         
-        console.log('🔍 Background: Filtering requests for Reclaim SDK (tab-specific):');
-        console.log(`  Tab ID: ${tabId}`);
+        console.log('🔍 Background: Filtering requests for Reclaim SDK:');
         console.log(`  Total filtered requests: ${allFilteredRequests.length}`);
         console.log(`  Requests with response body: ${requestsWithResponse.length}`);
         
@@ -169,15 +132,9 @@ ctx.processFilteredRequest = async function(request, criteria, sessionId, loginU
         if (ctx.pendingReclaimConfig && networkData.filteredRequests.length > 0) {
             console.log('🚀 Background: Network data captured - starting Reclaim SDK flow...');
             
-            // ⭐ UPDATED: Use current tab ID for activeTabId ⭐
-            const currentTabId = ctx.currentTabId || ctx.activeTabId;
-            ctx.activeTabId = currentTabId;
-            
-            console.log('📱 Background: Setting active tab for verification:', currentTabId);
-            
             // ⭐ NEW: Send popup message to show verification UI ⭐
             try {
-                chrome.tabs.sendMessage(currentTabId, {
+                chrome.tabs.sendMessage(ctx.activeTabId, {
                     action: ctx.MESSAGE_ACTIONS.SHOW_PROVIDER_VERIFICATION_POPUP,
                     source: ctx.MESSAGE_SOURCES.BACKGROUND,
                     target: ctx.MESSAGE_SOURCES.CONTENT_SCRIPT,
@@ -231,7 +188,7 @@ ctx.processFilteredRequest = async function(request, criteria, sessionId, loginU
             request.cookieStr = cookies;
         }
 
-        chrome.tabs.sendMessage(currentTabId, {
+        chrome.tabs.sendMessage(ctx.activeTabId, {
             action: ctx.MESSAGE_ACTIONS.CLAIM_CREATION_REQUESTED,
             source: ctx.MESSAGE_SOURCES.BACKGROUND,
             target: ctx.MESSAGE_SOURCES.CONTENT_SCRIPT,
@@ -464,26 +421,6 @@ ctx.processFilteredRequest = async function(request, criteria, sessionId, loginU
 ctx.sessionTimerManager.setCallbacks(ctx.failSession);
 ctx.sessionTimerManager.setTimerDuration(120000); // 2 minutes to allow time for user interaction
 
-// ⭐ ADDED: Tab event listeners for proper state management ⭐
-chrome.tabs.onActivated.addListener((activeInfo) => {
-    console.log('📱 Background: Tab activated:', activeInfo.tabId);
-    ctx.setCurrentTab(activeInfo.tabId);
-});
-
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    if (changeInfo.status === 'loading' && tab.url) {
-        console.log('🔄 Background: Tab loading:', tabId, tab.url);
-        // Reset state for new page loads
-        ctx.resetTabState(tabId);
-    }
-});
-
-chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
-    console.log('🗑️ Background: Tab removed:', tabId);
-    // Clean up tab state when tab is closed
-    ctx.tabStates.delete(tabId);
-});
-
 // ⭐ NEW: Helper function to get page data from content script ⭐
 ctx.getPageDataFromContentScript = async function(tabId) {
   console.log('📄 [BACKGROUND-DETAILED] getPageDataFromContentScript called:', {
@@ -570,6 +507,11 @@ ctx.getPageDataFromContentScript = async function(tabId) {
   });
 };
 
+// Function to check if session is already in progress
+function isSessionInProgress() {
+    return !!(ctx.sessionId || ctx.activeTabId || ctx.providerData);
+}
+
 // ⭐ CRITICAL: Set up periodic network data sync to offscreen ⭐
 // This ensures the Reclaim SDK always has access to the latest captured network data
 let networkDataSyncInterval = null;
@@ -639,9 +581,82 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Required for async response in Chrome Extensions
 });
 
-// Listen for tab removals to clean up managedTabs
+// Listen for tab removals to clean up managedTabs and reset session
 chrome.tabs.onRemoved.addListener((tabId) => {
+    console.log('🗑️ [BACKGROUND-CLEANUP] Tab removed:', {
+        tabId: tabId,
+        isManagedTab: ctx.managedTabs.has(tabId),
+        isActiveTab: ctx.activeTabId === tabId,
+        timestamp: new Date().toISOString()
+    });
+    
     if (ctx.managedTabs.has(tabId)) {
         ctx.managedTabs.delete(tabId);
+        console.log('✅ [BACKGROUND-CLEANUP] Removed from managed tabs');
+    }
+    
+    // If the active tab was closed, reset the session
+    if (ctx.activeTabId === tabId) {
+        console.log('🔄 [BACKGROUND-CLEANUP] Active tab closed - resetting session state');
+        resetSessionState();
     }
 });
+
+// Listen for tab updates to detect navigation away from provider pages
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (ctx.managedTabs.has(tabId) && changeInfo.status === 'complete') {
+        console.log('🔄 [BACKGROUND-CLEANUP] Managed tab updated:', {
+            tabId: tabId,
+            url: tab.url,
+            isActiveTab: ctx.activeTabId === tabId,
+            timestamp: new Date().toISOString()
+        });
+        
+        // If user navigated away from provider domain, consider session ended
+        if (ctx.providerData && ctx.providerData.loginUrl) {
+            const providerDomain = new URL(ctx.providerData.loginUrl).hostname;
+            const currentDomain = tab.url ? new URL(tab.url).hostname : '';
+            
+            if (currentDomain && !currentDomain.includes(providerDomain)) {
+                console.log('🚪 [BACKGROUND-CLEANUP] User navigated away from provider domain - resetting session');
+                resetSessionState();
+            }
+        }
+    }
+});
+
+// Function to reset session state
+function resetSessionState() {
+    console.log('🔄 [BACKGROUND-CLEANUP] Resetting session state...');
+    
+    // Stop network data sync
+    stopNetworkDataSync();
+    
+    // Clear all timers
+    if (ctx.sessionTimerManager) {
+        ctx.sessionTimerManager.clearAllTimers();
+    }
+    
+    // Reset session variables
+    ctx.activeTabId = null;
+    ctx.sessionId = null;
+    ctx.providerData = null;
+    ctx.parameters = null;
+    ctx.httpProviderId = null;
+    ctx.appId = null;
+    ctx.callbackUrl = null;
+    ctx.generatedProofs = new Map();
+    ctx.filteredRequests = new Map();
+    ctx.initPopupMessage = new Map();
+    ctx.providerDataMessage = new Map();
+    ctx.firstRequestReceived = false;
+    ctx.isProcessingQueue = false;
+    ctx.proofGenerationQueue = [];
+    
+    // Unregister request interceptors
+    if (ctx.unregisterRequestInterceptors) {
+        ctx.unregisterRequestInterceptors();
+    }
+    
+    console.log('✅ [BACKGROUND-CLEANUP] Session state reset completed');
+}
