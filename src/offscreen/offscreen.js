@@ -650,7 +650,7 @@ class OffscreenProofGenerator {
                                   errorType: typeof err
                                 });
                             });
-                        }
+                    }
                 }
             });
             

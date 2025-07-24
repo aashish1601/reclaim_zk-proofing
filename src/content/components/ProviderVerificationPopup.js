@@ -21,7 +21,11 @@ export function createProviderVerificationPopup(providerName, description, dataR
         completedClaims: 0,
         proofSubmitted: false,
         inProgress: false,
-        error: null
+        error: null,
+        loadingStartTime: null,
+        loadingDuration: 4000, // 4 seconds loading duration
+        pendingZKProof: null, // Store ZK proof to show after loading
+        loadingTimer: null
     };
 
     // Drag state
@@ -34,7 +38,6 @@ export function createProviderVerificationPopup(providerName, description, dataR
         initializeDragFunctionality();
         initializeCopyFunctionality();
         initializeTooltipFunctionality();
-        initializeDebugFunctionality();
     });
 
     // Drag and copy functionality will be initialized after content is rendered
@@ -133,28 +136,6 @@ export function createProviderVerificationPopup(providerName, description, dataR
             // Add global mouse event listeners
             document.addEventListener('mousemove', handleMouseMove);
             document.addEventListener('mouseup', handleMouseUp);
-        }
-        
-        // Initialize close button functionality
-        const closeButton = popup.querySelector('#reclaim-popup-close');
-        if (closeButton) {
-            const closePopup = (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                // Remove the popup from DOM
-                if (popup.parentNode) {
-                    popup.parentNode.removeChild(popup);
-                }
-                
-                // Clean up any global event listeners
-                document.removeEventListener('mousemove', handleMouseMove);
-                document.removeEventListener('mouseup', handleMouseUp);
-            };
-            
-            // Support both click and touch events for mobile
-            closeButton.addEventListener('click', closePopup);
-            closeButton.addEventListener('touchend', closePopup);
         }
         
         function handleMouseMove(e) {
@@ -337,62 +318,29 @@ export function createProviderVerificationPopup(providerName, description, dataR
         });
     }
 
-                        // Function to initialize debug button functionality
-                    function initializeDebugFunctionality() {
-                        const debugButton = popup.querySelector('#reclaim-debug-button');
-                        if (debugButton) {
-                            debugButton.addEventListener('click', (e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                
-                                // Call the global showDebugPanel function
-                                if (typeof showDebugPanel === 'function') {
-                                    showDebugPanel();
-                                } else {
-                                    console.log('[Reclaim Debug] Debug panel function not available');
-                                    // Fallback: create a simple alert with debug info
-                                    const debugInfo = {
-                                        url: window.location.href,
-                                        timestamp: new Date().toISOString(),
-                                        providerName: providerName,
-                                        sessionId: sessionId
-                                    };
-                                    alert('Debug Info: ' + JSON.stringify(debugInfo, null, 2));
-                                }
-                            });
-                        }
-                        
-                        // ⭐ NEW: Initialize trigger request button functionality ⭐
-                        const triggerButton = popup.querySelector('#reclaim-trigger-request');
-                        if (triggerButton) {
-                            triggerButton.addEventListener('click', (e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                
-                                console.log('[Reclaim Debug] Trigger request button clicked');
-                                
-                                // Try to trigger the target request
-                                const targetUrl = 'https://github.com/settings/profile';
-                                fetch(targetUrl, {
-                                    method: 'GET',
-                                    credentials: 'include'
-                                }).then(response => {
-                                    console.log('[Reclaim Debug] ✅ Successfully triggered request:', {
-                                        url: targetUrl,
-                                        status: response.status,
-                                        statusText: response.statusText
-                                    });
-                                    alert('✅ Request triggered successfully! Check console for details.');
-                                }).catch(error => {
-                                    console.log('[Reclaim Debug] ❌ Failed to trigger request:', error);
-                                    alert('❌ Failed to trigger request: ' + error.message);
-                                });
-                            });
-                        }
+    // Function to complete loading and show results
+    function completeLoading() {
+        console.log('[Reclaim Debug] Completing loading process...');
+        
+        // Clear the loading timer
+        if (state.loadingTimer) {
+            clearTimeout(state.loadingTimer);
+            state.loadingTimer = null;
+        }
+        
+        // Show success state
+        showSuccess();
+        
+        // Show pending ZK proof if available
+        if (state.pendingZKProof) {
+            console.log('[Reclaim Debug] Showing pending ZK proof after loading...');
+            showZKProof(state.pendingZKProof);
+            state.pendingZKProof = null; // Clear the pending proof
+        }
     }
 
-    // Function to show loader
-    function showLoader(message = "Generating verification proof...") {
+    // Function to show loader with 4-second loading state
+    function showLoader(message = "Verifying, please wait...") {
         const stepsContainer = popup.querySelector('#reclaim-steps-container');
         const statusContainer = popup.querySelector('#reclaim-status-container');
         const circularLoader = popup.querySelector('#reclaim-circular-loader');
@@ -433,7 +381,21 @@ export function createProviderVerificationPopup(providerName, description, dataR
         }
         
         state.inProgress = true;
+        state.loadingStartTime = Date.now();
+        
+        // Clear any existing timer
+        if (state.loadingTimer) {
+            clearTimeout(state.loadingTimer);
+        }
+        
+        // Set up the 4-second loading timer
+        state.loadingTimer = setTimeout(() => {
+            completeLoading();
+        }, state.loadingDuration);
+        
         updateProgressBar();
+        
+        console.log('[Reclaim Debug] Started 4-second loading process...');
     }
 
     // Function to update the progress bar
@@ -517,8 +479,17 @@ export function createProviderVerificationPopup(providerName, description, dataR
         }
     }
 
-    // Function to show ZK proof
+    // Function to show ZK proof (now with loading delay)
     function showZKProof(proofData) {
+        // If we're still in loading state, store the proof to show later
+        if (state.inProgress && state.loadingTimer) {
+            console.log('[Reclaim Debug] ZK proof received during loading - storing for later display...');
+            state.pendingZKProof = proofData;
+            return;
+        }
+        
+        console.log('[Reclaim Debug] Showing ZK proof immediately...');
+        
         const proofViewer = popup.querySelector('#reclaim-proof-viewer');
         const proofContent = popup.querySelector('#reclaim-proof-content');
         
@@ -560,6 +531,12 @@ export function createProviderVerificationPopup(providerName, description, dataR
 
     // Function to show error state
     function showError(errorMessage) {
+        // Clear any pending loading timer
+        if (state.loadingTimer) {
+            clearTimeout(state.loadingTimer);
+            state.loadingTimer = null;
+        }
+        
         const stepsContainer = popup.querySelector('#reclaim-steps-container');
         const statusContainer = popup.querySelector('#reclaim-status-container');
         const circularLoader = popup.querySelector('#reclaim-circular-loader');
@@ -624,11 +601,11 @@ export function createProviderVerificationPopup(providerName, description, dataR
         // Handle various status updates from background
         handleClaimCreationRequested: (requestHash) => {
             incrementTotalClaims();
-            showLoader("Creating verification claim...");
+            showLoader("Verifying, please wait...");
         },
         
         handleClaimCreationSuccess: (requestHash) => {
-            updateStatusMessage("Claim created successfully. Generating proof...");
+            updateStatusMessage("Claim created successfully. Verifying...");
         },
         
         handleClaimCreationFailed: (requestHash) => {
@@ -636,14 +613,14 @@ export function createProviderVerificationPopup(providerName, description, dataR
         },
         
         handleProofGenerationStarted: (requestHash) => {
-            updateStatusMessage("Generating cryptographic proof...");
+            updateStatusMessage("Verifying cryptographic proof...");
         },
         
         handleProofGenerationSuccess: (requestHash, proofData) => {
             incrementCompletedClaims();
             updateStatusMessage(`ZK proof generated successfully! (${state.completedClaims}/${state.totalClaims})`);
             
-            // Show the ZK proof if provided
+            // Show the ZK proof if provided (will be delayed if still loading)
             if (proofData) {
                 showZKProof(proofData);
             }
@@ -655,12 +632,13 @@ export function createProviderVerificationPopup(providerName, description, dataR
         
         handleProofSubmitted: (proofData) => {
             state.proofSubmitted = true;
-            showSuccess();
             
-            // Show the ZK proof if provided
+            // Show the ZK proof if provided (will be delayed if still loading)
             if (proofData) {
                 showZKProof(proofData);
             }
+            
+            // Note: showSuccess() will be called by completeLoading() after 4 seconds
         },
         
         handleProofSubmissionFailed: (error) => {

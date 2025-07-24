@@ -50,7 +50,7 @@ const PROVIDER_ID = process.env.PROVIDER_ID;
 
 // ⭐ IMPORTANT: Update this with your CURRENT Ngrok URL ⭐
 // You can also set this as an environment variable: BASE_URL
-const BASE_URL = "https://09236c9d4f31.ngrok-free.app";
+const BASE_URL = "https://45bd446d0181.ngrok-free.app";
 
 // Validate required environment variables
 if (!APP_ID || !APP_SECRET || !PROVIDER_ID) {

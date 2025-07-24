@@ -71,7 +71,7 @@ ctx.submitProofs = (...args) => sessionManager.submitProofs(ctx, ...args);
 ctx.stopNetworkDataSync = stopNetworkDataSync;
 
 // Add processFilteredRequest to context (moved from class)
-ctx.processFilteredRequest = async function(request, criteria, sessionId, loginUrl) {
+ctx.processFilteredRequest = async function (request, criteria, sessionId, loginUrl) {
     try {
         if (!ctx.firstRequestReceived) {
             ctx.firstRequestReceived = true;
@@ -90,34 +90,34 @@ ctx.processFilteredRequest = async function(request, criteria, sessionId, loginU
         // This ensures the Reclaim SDK has access to the network data it needs
         // ⭐ ENHANCED: Filter out requests without response bodies to prevent SDK timeout ⭐
         const allFilteredRequests = Array.from(ctx.filteredRequests.values());
-        const requestsWithResponse = allFilteredRequests.filter(request => 
+        const requestsWithResponse = allFilteredRequests.filter(request =>
             request.responseText && request.responseText.length > 0
         );
-        
+
         console.log('🔍 Background: Filtering requests for Reclaim SDK:');
         console.log(`  Total filtered requests: ${allFilteredRequests.length}`);
         console.log(`  Requests with response body: ${requestsWithResponse.length}`);
-        
+
         const networkData = {
             filteredRequests: requestsWithResponse,
             providerData: ctx.providerData,
             sessionId: ctx.sessionId
         };
-        
+
         // ⭐ DEBUG: Log network data being sent to offscreen ⭐
         console.log('📡 Background: Sending network data to offscreen:', {
             filteredRequestsCount: networkData.filteredRequests.length,
             providerDataAvailable: !!networkData.providerData,
             sessionId: networkData.sessionId
         });
-        
+
         if (networkData.filteredRequests.length > 0) {
             console.log('🔍 Background: Filtered requests being sent:');
             networkData.filteredRequests.forEach((request, index) => {
                 console.log(`  ${index + 1}. ${request.method} ${request.url} - hasResponse: ${!!request.responseText}, responseLength: ${request.responseText?.length || 0}`);
             });
         }
-        
+
         // Send network data to offscreen for Reclaim SDK
         chrome.runtime.sendMessage({
             action: ctx.MESSAGE_ACTIONS.NETWORK_DATA_FOR_RECLAIM,
@@ -131,7 +131,7 @@ ctx.processFilteredRequest = async function(request, criteria, sessionId, loginU
         // ⭐ ENHANCED: Start Reclaim SDK flow if we have pending config and network data ⭐
         if (ctx.pendingReclaimConfig && networkData.filteredRequests.length > 0) {
             console.log('🚀 Background: Network data captured - enhancing Reclaim SDK flow with captured data...');
-            
+
             // ⭐ ENHANCED: Send popup message to show verification UI ⭐
             try {
                 chrome.tabs.sendMessage(ctx.activeTabId, {
@@ -150,27 +150,27 @@ ctx.processFilteredRequest = async function(request, criteria, sessionId, loginU
             } catch (error) {
                 console.warn('Background: Error sending popup message:', error);
             }
-            
+
             // ⭐ ENHANCED: Retry mechanism for offscreen communication ⭐
             let retryCount = 0;
             const maxRetries = 3;
-            
+            let offscreenResponse = null;
+
             while (retryCount < maxRetries) {
                 try {
                     console.log(`🔄 Background: Attempting offscreen communication (attempt ${retryCount + 1}/${maxRetries})...`);
-                    
-                    const offscreenResponse = await new Promise((resolve, reject) => {
+
+                    offscreenResponse = await new Promise((resolve, reject) => {
                         const timeout = setTimeout(() => {
                             reject(new Error('Offscreen communication timeout'));
                         }, 5000); // 5 second timeout
-                        
+
                         chrome.runtime.sendMessage({
                             action: ctx.MESSAGE_ACTIONS.GENERATE_PROOF,
                             source: ctx.MESSAGE_SOURCES.BACKGROUND,
                             target: ctx.MESSAGE_SOURCES.OFFSCREEN,
-                            data: { 
-                                reclaimProofRequestConfig: ctx.pendingReclaimConfig,
-                                claimData: claimData // Pass claim data with extracted parameters
+                            data: {
+                                reclaimProofRequestConfig: ctx.pendingReclaimConfig
                             }
                         }, (response) => {
                             clearTimeout(timeout);
@@ -181,14 +181,14 @@ ctx.processFilteredRequest = async function(request, criteria, sessionId, loginU
                             }
                         });
                     });
-                    
+
                     console.log('✅ Background: Offscreen communication successful:', offscreenResponse);
                     break; // Success, exit retry loop
-                    
+
                 } catch (error) {
                     retryCount++;
                     console.warn(`⚠️ Background: Offscreen communication attempt ${retryCount} failed:`, error);
-                    
+
                     if (retryCount >= maxRetries) {
                         console.error('❌ Background: All offscreen communication attempts failed');
                         // Don't throw - let the process continue with network data
@@ -199,19 +199,24 @@ ctx.processFilteredRequest = async function(request, criteria, sessionId, loginU
                 }
             }
 
-                console.log('✅ Background: Reclaim SDK flow started:', offscreenResponse);
-                
-                // Clear pending config since we've used it
-                ctx.pendingReclaimConfig = null;
-                ctx.pendingSessionId = null;
-                ctx.pendingProviderId = null;
-                ctx.pendingApplicationId = null;
-                
-            } catch (error) {
-                console.error('❌ Background: Failed to start Reclaim SDK flow:', error);
+            if (offscreenResponse) {
+                console.log('✅ Background: Reclaim SDK flow started successfully');
+            } else {
+                console.log('⚠️ Background: Reclaim SDK flow not started - continuing with ZK proof generation');
             }
-        }
 
+            // Clear pending config since we've used it
+            ctx.pendingReclaimConfig = null;
+            ctx.pendingSessionId = null;
+            ctx.pendingProviderId = null;
+            ctx.pendingApplicationId = null;
+
+        } 
+    }catch (error) {
+        console.error('❌ Background: Failed to start Reclaim SDK flow:', error);
+    }
+
+    try {
         const cookies = await cookieUtils.getCookiesForUrl(request.url, ctx.debugLogger, ctx.DebugLogType);
         if (cookies) {
             request.cookieStr = cookies;
@@ -270,7 +275,7 @@ ctx.processFilteredRequest = async function(request, criteria, sessionId, loginU
                 paramValuesCount: claimData.params?.paramValues ? Object.keys(claimData.params.paramValues).length : 0,
                 secretParamValuesCount: claimData.secretParams?.paramValues ? Object.keys(claimData.secretParams.paramValues).length : 0
             });
-            
+
             // ⭐ NEW: Send claim data to offscreen script ⭐
             chrome.runtime.sendMessage({
                 action: ctx.MESSAGE_ACTIONS.NETWORK_DATA_FOR_RECLAIM,
@@ -285,7 +290,7 @@ ctx.processFilteredRequest = async function(request, criteria, sessionId, loginU
             }).catch(err => {
                 console.warn('Background: Could not send claim data to offscreen:', err);
             });
-            
+
             chrome.tabs.sendMessage(ctx.activeTabId, {
                 action: ctx.MESSAGE_ACTIONS.CLAIM_CREATION_SUCCESS,
                 source: ctx.MESSAGE_SOURCES.BACKGROUND,
@@ -311,133 +316,133 @@ ctx.processFilteredRequest = async function(request, criteria, sessionId, loginU
             ctx.failSession("Claim creation failed: No claim data returned", criteria.requestHash);
             return { success: false, error: 'No claim data returned' };
         }
-        
+
         // ⭐ NEW: Use Wootz API for ZK proof generation instead of Reclaim SDK ⭐
         try {
-          console.log('🚀 Background: Starting ZK proof generation with Wootz API...');
-          console.log('📋 Background: Claim data for ZK proof:', {
-            hasClaimData: !!claimData,
-            claimDataKeys: claimData ? Object.keys(claimData) : [],
-            providerName: claimData?.providerData?.name,
-            extractedParams: claimData?.params?.paramValues || {},
-            timestamp: new Date().toISOString()
-          });
-          
-          // Get page data from content script first
-          console.log('📄 Background: Getting page data from content script...');
-          const pageData = await this.getPageDataFromContentScript(ctx.activeTabId);
-          
-          console.log('✅ Background: Page data received:', {
-            hasPageData: !!pageData,
-            pageUrl: pageData?.url,
-            pageContentLength: pageData?.content ? pageData.content.length : 0,
-            pageContentPreview: pageData?.content ? pageData.content.substring(0, 200) + '...' : 'N/A'
-          });
-          
-          // Import the proof generator
-          console.log('📦 Background: Importing proof generator...');
-          const { generateProof } = await import('../utils/proof-generator/proof-generator.js');
-          
-          // Generate ZK proof with page data
-          console.log('🔧 Background: Calling generateProof with data:', {
-            hasClaimData: !!claimData,
-            hasPageData: !!pageData,
-            timestamp: new Date().toISOString()
-          });
-          
-          const proofResult = await generateProof(claimData, pageData);
-          
-          console.log('📊 Background: Proof result received:', {
-            success: proofResult.success,
-            hasProof: !!proofResult.proof,
-            hasError: !!proofResult.error,
-            error: proofResult.error,
-            message: proofResult.message,
-            timestamp: new Date().toISOString()
-          });
+            console.log('🚀 Background: Starting ZK proof generation with Wootz API...');
+            console.log('📋 Background: Claim data for ZK proof:', {
+                hasClaimData: !!claimData,
+                claimDataKeys: claimData ? Object.keys(claimData) : [],
+                providerName: claimData?.providerData?.name,
+                extractedParams: claimData?.params?.paramValues || {},
+                timestamp: new Date().toISOString()
+            });
 
-          if (proofResult.success) {
-            console.log('✅ Background: ZK proof generation successful!');
-            console.log('📊 Background: Proof details:', {
-              proofSize: proofResult.proof ? JSON.stringify(proofResult.proof).length : 0,
-              hasCallbackResponse: !!proofResult.callbackResponse,
-              callbackResponseKeys: proofResult.callbackResponse ? Object.keys(proofResult.callbackResponse) : [],
-              message: proofResult.message,
-              proofKeys: proofResult.proof ? Object.keys(proofResult.proof) : []
+            // Get page data from content script first
+            console.log('📄 Background: Getting page data from content script...');
+            const pageData = await this.getPageDataFromContentScript(ctx.activeTabId);
+
+            console.log('✅ Background: Page data received:', {
+                hasPageData: !!pageData,
+                pageUrl: pageData?.url,
+                pageContentLength: pageData?.content ? pageData.content.length : 0,
+                pageContentPreview: pageData?.content ? pageData.content.substring(0, 200) + '...' : 'N/A'
             });
-            
-            // Send success message to content script
+
+            // Import the proof generator
+            console.log('📦 Background: Importing proof generator...');
+            const { generateProof } = await import('../utils/proof-generator/proof-generator.js');
+
+            // Generate ZK proof with page data
+            console.log('🔧 Background: Calling generateProof with data:', {
+                hasClaimData: !!claimData,
+                hasPageData: !!pageData,
+                timestamp: new Date().toISOString()
+            });
+
+            const proofResult = await generateProof(claimData, pageData);
+
+            console.log('📊 Background: Proof result received:', {
+                success: proofResult.success,
+                hasProof: !!proofResult.proof,
+                hasError: !!proofResult.error,
+                error: proofResult.error,
+                message: proofResult.message,
+                timestamp: new Date().toISOString()
+            });
+
+            if (proofResult.success) {
+                console.log('✅ Background: ZK proof generation successful!');
+                console.log('📊 Background: Proof details:', {
+                    proofSize: proofResult.proof ? JSON.stringify(proofResult.proof).length : 0,
+                    hasCallbackResponse: !!proofResult.callbackResponse,
+                    callbackResponseKeys: proofResult.callbackResponse ? Object.keys(proofResult.callbackResponse) : [],
+                    message: proofResult.message,
+                    proofKeys: proofResult.proof ? Object.keys(proofResult.proof) : []
+                });
+
+                // Send success message to content script
+                chrome.tabs.sendMessage(ctx.activeTabId, {
+                    action: ctx.MESSAGE_ACTIONS.PROOF_GENERATION_SUCCESS,
+                    source: ctx.MESSAGE_SOURCES.BACKGROUND,
+                    target: ctx.MESSAGE_SOURCES.CONTENT_SCRIPT,
+                    data: {
+                        requestHash: criteria.requestHash,
+                        proof: proofResult.proof,
+                        callbackResponse: proofResult.callbackResponse
+                    }
+                });
+
+                // Send proof submitted message to show final success state
+                setTimeout(() => {
+                    chrome.tabs.sendMessage(ctx.activeTabId, {
+                        action: ctx.MESSAGE_ACTIONS.PROOF_SUBMITTED,
+                        source: ctx.MESSAGE_SOURCES.BACKGROUND,
+                        target: ctx.MESSAGE_SOURCES.CONTENT_SCRIPT,
+                        data: {
+                            requestHash: criteria.requestHash,
+                            proof: proofResult.proof,
+                            callbackResponse: proofResult.callbackResponse
+                        }
+                    });
+                }, 1000); // Small delay to show the progression
+
+                return { success: true, message: "ZK proof generated and sent successfully" };
+            } else {
+                console.error('❌ Background: ZK proof generation failed:', {
+                    error: proofResult.error,
+                    errorType: typeof proofResult.error,
+                    hasMessage: !!proofResult.message,
+                    message: proofResult.message,
+                    timestamp: new Date().toISOString()
+                });
+
+                // Send failure message to content script
+                console.log('📤 Background: Sending failure message to content script...');
+                chrome.tabs.sendMessage(ctx.activeTabId, {
+                    action: ctx.MESSAGE_ACTIONS.PROOF_GENERATION_FAILED,
+                    source: ctx.MESSAGE_SOURCES.BACKGROUND,
+                    target: ctx.MESSAGE_SOURCES.CONTENT_SCRIPT,
+                    data: {
+                        requestHash: criteria.requestHash,
+                        error: proofResult.error
+                    }
+                });
+
+                return { success: false, error: proofResult.error };
+            }
+        } catch (error) {
+            console.error('❌ Background: Error in ZK proof generation:', {
+                error: error,
+                errorMessage: error.message,
+                errorStack: error.stack,
+                errorType: typeof error,
+                timestamp: new Date().toISOString()
+            });
+
+            // Send failure message to content script
+            console.log('📤 Background: Sending error message to content script...');
             chrome.tabs.sendMessage(ctx.activeTabId, {
-              action: ctx.MESSAGE_ACTIONS.PROOF_GENERATION_SUCCESS,
-              source: ctx.MESSAGE_SOURCES.BACKGROUND,
-              target: ctx.MESSAGE_SOURCES.CONTENT_SCRIPT,
-              data: { 
-                requestHash: criteria.requestHash,
-                proof: proofResult.proof,
-                callbackResponse: proofResult.callbackResponse
-              }
-            });
-            
-            // Send proof submitted message to show final success state
-            setTimeout(() => {
-              chrome.tabs.sendMessage(ctx.activeTabId, {
-                action: ctx.MESSAGE_ACTIONS.PROOF_SUBMITTED,
+                action: ctx.MESSAGE_ACTIONS.PROOF_GENERATION_FAILED,
                 source: ctx.MESSAGE_SOURCES.BACKGROUND,
                 target: ctx.MESSAGE_SOURCES.CONTENT_SCRIPT,
-                data: { 
-                  requestHash: criteria.requestHash,
-                  proof: proofResult.proof,
-                  callbackResponse: proofResult.callbackResponse
+                data: {
+                    requestHash: criteria.requestHash,
+                    error: error.message
                 }
-              });
-            }, 1000); // Small delay to show the progression
-            
-            return { success: true, message: "ZK proof generated and sent successfully" };
-          } else {
-            console.error('❌ Background: ZK proof generation failed:', {
-              error: proofResult.error,
-              errorType: typeof proofResult.error,
-              hasMessage: !!proofResult.message,
-              message: proofResult.message,
-              timestamp: new Date().toISOString()
             });
-            
-            // Send failure message to content script
-            console.log('📤 Background: Sending failure message to content script...');
-            chrome.tabs.sendMessage(ctx.activeTabId, {
-              action: ctx.MESSAGE_ACTIONS.PROOF_GENERATION_FAILED,
-              source: ctx.MESSAGE_SOURCES.BACKGROUND,
-              target: ctx.MESSAGE_SOURCES.CONTENT_SCRIPT,
-              data: { 
-                requestHash: criteria.requestHash,
-                error: proofResult.error
-              }
-            });
-            
-            return { success: false, error: proofResult.error };
-          }
-        } catch (error) {
-          console.error('❌ Background: Error in ZK proof generation:', {
-            error: error,
-            errorMessage: error.message,
-            errorStack: error.stack,
-            errorType: typeof error,
-            timestamp: new Date().toISOString()
-          });
-          
-          // Send failure message to content script
-          console.log('📤 Background: Sending error message to content script...');
-          chrome.tabs.sendMessage(ctx.activeTabId, {
-            action: ctx.MESSAGE_ACTIONS.PROOF_GENERATION_FAILED,
-            source: ctx.MESSAGE_SOURCES.BACKGROUND,
-            target: ctx.MESSAGE_SOURCES.CONTENT_SCRIPT,
-            data: { 
-              requestHash: criteria.requestHash,
-              error: error.message
-            }
-          });
-          
-          return { success: false, error: error.message };
+
+            return { success: false, error: error.message };
         }
     } catch (error) {
         debugLogger.error(DebugLogType.BACKGROUND, 'Error processing filtered request:', error);
@@ -451,89 +456,89 @@ ctx.sessionTimerManager.setCallbacks(ctx.failSession);
 ctx.sessionTimerManager.setTimerDuration(120000); // 2 minutes to allow time for user interaction
 
 // ⭐ NEW: Helper function to get page data from content script ⭐
-ctx.getPageDataFromContentScript = async function(tabId) {
-  console.log('📄 [BACKGROUND-DETAILED] getPageDataFromContentScript called:', {
-    tabId: tabId,
-    hasChrome: typeof chrome !== 'undefined',
-    hasTabs: typeof chrome !== 'undefined' && !!chrome.tabs,
-    hasSendMessage: typeof chrome !== 'undefined' && chrome.tabs && typeof chrome.tabs.sendMessage === 'function',
-    timestamp: new Date().toISOString()
-  });
-
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      console.error('⏰ [BACKGROUND-DETAILED] Timeout getting page data from content script after 10 seconds');
-      reject(new Error('Timeout getting page data from content script'));
-    }, 10000); // 10 second timeout
-
-    console.log('📤 [BACKGROUND-DETAILED] Sending GET_PAGE_DATA message to content script...');
-    chrome.tabs.sendMessage(tabId, {
-      action: MESSAGE_ACTIONS.GET_PAGE_DATA,
-      source: MESSAGE_SOURCES.BACKGROUND,
-      target: MESSAGE_SOURCES.CONTENT_SCRIPT
-    }, (response) => {
-      clearTimeout(timeout);
-      
-      console.log('📥 [BACKGROUND-DETAILED] Response received from content script:', {
-        hasResponse: !!response,
-        responseType: typeof response,
-        responseKeys: response ? Object.keys(response) : [],
-        success: response?.success,
-        hasUrl: !!response?.url,
-        hasContent: !!response?.content,
-        contentLength: response?.content ? response.content.length : 0,
-        error: response?.error,
+ctx.getPageDataFromContentScript = async function (tabId) {
+    console.log('📄 [BACKGROUND-DETAILED] getPageDataFromContentScript called:', {
+        tabId: tabId,
+        hasChrome: typeof chrome !== 'undefined',
+        hasTabs: typeof chrome !== 'undefined' && !!chrome.tabs,
+        hasSendMessage: typeof chrome !== 'undefined' && chrome.tabs && typeof chrome.tabs.sendMessage === 'function',
         timestamp: new Date().toISOString()
-      });
-      
-      if (chrome.runtime.lastError) {
-        console.error('❌ [BACKGROUND-DETAILED] Chrome runtime error:', {
-          error: chrome.runtime.lastError,
-          errorMessage: chrome.runtime.lastError.message,
-          timestamp: new Date().toISOString()
-        });
-        console.warn('Could not get page data from content script:', chrome.runtime.lastError.message);
-        // Fallback to empty data
-        const fallbackData = {
-          url: 'unknown',
-          content: ''
-        };
-        console.log('🔄 [BACKGROUND-DETAILED] Using fallback data:', fallbackData);
-        resolve(fallbackData);
-        return;
-      }
-      
-      if (response && response.success) {
-        const pageData = {
-          url: response.url,
-          content: response.content
-        };
-
-        console.log('✅ [BACKGROUND-DETAILED] Successfully resolved page data:', {
-          url: pageData.url,
-          contentLength: pageData.content.length,
-          timestamp: new Date().toISOString()
-        });
-
-        resolve(pageData);
-      } else {
-        console.error('❌ [BACKGROUND-DETAILED] Content script returned error:', {
-          hasResponse: !!response,
-          success: response?.success,
-          error: response?.error,
-          timestamp: new Date().toISOString()
-        });
-        console.warn('Content script returned no page data');
-        
-        const fallbackData = {
-          url: 'unknown',
-          content: ''
-        };
-        console.log('🔄 [BACKGROUND-DETAILED] Using fallback data due to error:', fallbackData);
-        resolve(fallbackData);
-      }
     });
-  });
+
+    return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+            console.error('⏰ [BACKGROUND-DETAILED] Timeout getting page data from content script after 10 seconds');
+            reject(new Error('Timeout getting page data from content script'));
+        }, 10000); // 10 second timeout
+
+        console.log('📤 [BACKGROUND-DETAILED] Sending GET_PAGE_DATA message to content script...');
+        chrome.tabs.sendMessage(tabId, {
+            action: MESSAGE_ACTIONS.GET_PAGE_DATA,
+            source: MESSAGE_SOURCES.BACKGROUND,
+            target: MESSAGE_SOURCES.CONTENT_SCRIPT
+        }, (response) => {
+            clearTimeout(timeout);
+
+            console.log('📥 [BACKGROUND-DETAILED] Response received from content script:', {
+                hasResponse: !!response,
+                responseType: typeof response,
+                responseKeys: response ? Object.keys(response) : [],
+                success: response?.success,
+                hasUrl: !!response?.url,
+                hasContent: !!response?.content,
+                contentLength: response?.content ? response.content.length : 0,
+                error: response?.error,
+                timestamp: new Date().toISOString()
+            });
+
+            if (chrome.runtime.lastError) {
+                console.error('❌ [BACKGROUND-DETAILED] Chrome runtime error:', {
+                    error: chrome.runtime.lastError,
+                    errorMessage: chrome.runtime.lastError.message,
+                    timestamp: new Date().toISOString()
+                });
+                console.warn('Could not get page data from content script:', chrome.runtime.lastError.message);
+                // Fallback to empty data
+                const fallbackData = {
+                    url: 'unknown',
+                    content: ''
+                };
+                console.log('🔄 [BACKGROUND-DETAILED] Using fallback data:', fallbackData);
+                resolve(fallbackData);
+                return;
+            }
+
+            if (response && response.success) {
+                const pageData = {
+                    url: response.url,
+                    content: response.content
+                };
+
+                console.log('✅ [BACKGROUND-DETAILED] Successfully resolved page data:', {
+                    url: pageData.url,
+                    contentLength: pageData.content.length,
+                    timestamp: new Date().toISOString()
+                });
+
+                resolve(pageData);
+            } else {
+                console.error('❌ [BACKGROUND-DETAILED] Content script returned error:', {
+                    hasResponse: !!response,
+                    success: response?.success,
+                    error: response?.error,
+                    timestamp: new Date().toISOString()
+                });
+                console.warn('Content script returned no page data');
+
+                const fallbackData = {
+                    url: 'unknown',
+                    content: ''
+                };
+                console.log('🔄 [BACKGROUND-DETAILED] Using fallback data due to error:', fallbackData);
+                resolve(fallbackData);
+            }
+        });
+    });
 };
 
 // Function to check if session is already in progress
@@ -555,10 +560,10 @@ function startNetworkDataSync() {
         if (ctx.filteredRequests.size > 0) {
             // ⭐ ENHANCED: Filter out requests without response bodies ⭐
             const allFilteredRequests = Array.from(ctx.filteredRequests.values());
-            const requestsWithResponse = allFilteredRequests.filter(request => 
+            const requestsWithResponse = allFilteredRequests.filter(request =>
                 request.responseText && request.responseText.length > 0
             );
-            
+
             if (requestsWithResponse.length > 0) {
             chrome.runtime.sendMessage({
                 action: ctx.MESSAGE_ACTIONS.NETWORK_DATA_FOR_RECLAIM,
@@ -603,7 +608,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         dataKeys: message.data ? Object.keys(message.data) : [],
         senderTabId: sender.tab?.id
     });
-    
+
     // This is the main entry point for all messages received by the background script.
     // It delegates handling to the messageRouter.
     messageRouter.handleMessage(ctx, message, sender, sendResponse);
@@ -618,12 +623,12 @@ chrome.tabs.onRemoved.addListener((tabId) => {
         isActiveTab: ctx.activeTabId === tabId,
         timestamp: new Date().toISOString()
     });
-    
+
     if (ctx.managedTabs.has(tabId)) {
         ctx.managedTabs.delete(tabId);
         console.log('✅ [BACKGROUND-CLEANUP] Removed from managed tabs');
     }
-    
+
     // If the active tab was closed, reset the session
     if (ctx.activeTabId === tabId) {
         console.log('🔄 [BACKGROUND-CLEANUP] Active tab closed - resetting session state');
@@ -640,12 +645,12 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
             isActiveTab: ctx.activeTabId === tabId,
             timestamp: new Date().toISOString()
         });
-        
+
         // If user navigated away from provider domain, consider session ended
         if (ctx.providerData && ctx.providerData.loginUrl) {
             const providerDomain = new URL(ctx.providerData.loginUrl).hostname;
             const currentDomain = tab.url ? new URL(tab.url).hostname : '';
-            
+
             if (currentDomain && !currentDomain.includes(providerDomain)) {
                 console.log('🚪 [BACKGROUND-CLEANUP] User navigated away from provider domain - resetting session');
                 resetSessionState();
@@ -657,15 +662,15 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 // Function to reset session state
 function resetSessionState() {
     console.log('🔄 [BACKGROUND-CLEANUP] Resetting session state...');
-    
+
     // Stop network data sync
     stopNetworkDataSync();
-    
+
     // Clear all timers
     if (ctx.sessionTimerManager) {
         ctx.sessionTimerManager.clearAllTimers();
     }
-    
+
     // Reset session variables
     ctx.activeTabId = null;
     ctx.sessionId = null;
@@ -681,11 +686,11 @@ function resetSessionState() {
     ctx.firstRequestReceived = false;
     ctx.isProcessingQueue = false;
     ctx.proofGenerationQueue = [];
-    
+
     // Unregister request interceptors
     if (ctx.unregisterRequestInterceptors) {
         ctx.unregisterRequestInterceptors();
     }
-    
+
     console.log('✅ [BACKGROUND-CLEANUP] Session state reset completed');
 }

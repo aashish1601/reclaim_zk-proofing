@@ -12,7 +12,7 @@ const PopupApp = () => {
 
     // ⭐ IMPORTANT: This URL MUST be updated every time Ngrok restarts! ⭐
     // Replace with your CURRENT Ngrok HTTPS forwarding URL + /generate-config
-    const BACKEND_GENERATE_CONFIG_URL = "https://09236c9d4f31.ngrok-free.app/generate-config"; // Update this with your live URL
+    const BACKEND_GENERATE_CONFIG_URL = "https://45bd446d0181.ngrok-free.app/generate-config"; // Update this with your live URL
 
     const sendMessageToBackground = async (actionType, payload = {}) => {
         try {
@@ -222,103 +222,96 @@ const PopupApp = () => {
     const viewUrl = viewUrlMatch ? viewUrlMatch[0] : null;
 
     return (
-        <div className="container">
-            <h1>Reclaim Protocol</h1>
-            
-            {/* Provider Selection */}
-            <div style={{ marginBottom: '15px' }}>
-                <h3 style={{ fontSize: '14px', marginBottom: '10px', color: '#e5e7eb' }}>Select Provider:</h3>
-                <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
-                    {Object.entries(PROVIDERS).map(([key, provider]) => (
-                        <button
-                            key={key}
-                            onClick={() => handleProviderSelect(key)}
-                            disabled={loading || resetting}
-                            style={{
-                                backgroundColor: selectedProvider === key ? '#3b82f6' : '#374151',
-                                color: 'white',
-                                border: 'none',
-                                padding: '12px',
-                                borderRadius: '8px',
-                                cursor: 'pointer',
-                                fontSize: '14px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                transition: 'background-color 0.3s ease',
-                                boxShadow: selectedProvider === key ? '0 4px 10px rgba(59, 130, 246, 0.3)' : 'none'
-                            }}
-                        >
-                            <span style={{ fontSize: '16px' }}>{provider.icon}</span>
-                            <div style={{ textAlign: 'left' }}>
-                                <div style={{ fontWeight: 'bold' }}>{provider.name}</div>
-                                <div style={{ fontSize: '11px', opacity: 0.8 }}>{provider.description}</div>
-                            </div>
-                        </button>
-                    ))}
-                </div>
+        <div className="fade-in">
+            {/* Header */}
+            <div className="popup-header">
+                <img className="popup-logo" src={chrome.runtime.getURL('assets/img/logo.png')} alt="Reclaim Protocol" />
+                <h1 className="popup-title">Reclaim Protocol</h1>
             </div>
 
-            <p className="status-message">
-                {viewUrl ? (
-                    <>
-                        Verification completed successfully!{' '}
-                        <a 
-                            href={viewUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            style={{ color: '#4CAF50', textDecoration: 'underline' }}
-                        >
-                            Click here to view proof details
-                        </a>
-                    </>
-                ) : (
-                    statusMessage
-                )}
-            </p>
-            
-            <div style={{ fontSize: '11px', color: '#666', margin: '5px 0', wordBreak: 'break-all' }}>
-                Backend: {BACKEND_GENERATE_CONFIG_URL}
-            </div>
-            
-            <button
-                onClick={handlePerformAction}
-                disabled={loading || resetting || !selectedProvider}
-                style={{
-                    opacity: !selectedProvider ? 0.5 : 1
-                }}
-            >
-                {loading ? 'Starting...' : 'Start Reclaim Verification'}
-            </button>
-            
-            <button
-                onClick={handleResetSession}
-                disabled={loading || resetting}
-                style={{
-                    backgroundColor: '#dc2626',
-                    marginTop: '10px'
-                }}
-            >
-                {resetting ? 'Resetting...' : 'Reset Session'}
-            </button>
-            
-            {/* Debug section */}
-            <div style={{ marginTop: '10px', fontSize: '10px', color: '#888' }}>
-                <details>
-                    <summary>Debug Info</summary>
-                    <div>Extension ID: {chrome.runtime.id}</div>
-                    <div>Timestamp: {new Date().toISOString()}</div>
-                    {selectedProvider && (
-                        <div>Selected Provider: {PROVIDERS[selectedProvider].name}</div>
-                    )}
-                    {viewUrl && (
-                        <div>
-                            <a href={viewUrl} target="_blank" rel="noopener noreferrer">
-                                View All Proofs
+            {/* Content */}
+            <div className="popup-content">
+                {/* Provider Selection */}
+                <div className="provider-selection">
+                    <h3>Select Provider:</h3>
+                    <div className="provider-buttons">
+                        {Object.entries(PROVIDERS).map(([key, provider]) => (
+                            <button
+                                key={key}
+                                onClick={() => handleProviderSelect(key)}
+                                disabled={loading || resetting}
+                                className={`provider-button ${selectedProvider === key ? 'selected' : ''}`}
+                            >
+                                <span className="provider-icon">{provider.icon}</span>
+                                <div className="provider-info">
+                                    <div className="provider-name">{provider.name}</div>
+                                    <div className="provider-description">{provider.description}</div>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Status Message */}
+                <div className="status-message">
+                    {viewUrl ? (
+                        <>
+                            Verification completed successfully!{' '}
+                            <a 
+                                href={viewUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                            >
+                                Click here to view proof details
                             </a>
-                        </div>
+                        </>
+                    ) : (
+                        statusMessage
                     )}
-                </details>
+                </div>
+                
+                {/* Backend Info */}
+                <div className="backend-info">
+                    Backend: {BACKEND_GENERATE_CONFIG_URL}
+                </div>
+                
+                {/* Action Buttons */}
+                <div className="action-buttons">
+                    <button
+                        onClick={handlePerformAction}
+                        disabled={loading || resetting || !selectedProvider}
+                        className="primary-button"
+                    >
+                        {loading ? 'Starting...' : 'Start Reclaim Verification'}
+                    </button>
+                    
+                    <button
+                        onClick={handleResetSession}
+                        disabled={loading || resetting}
+                        className="secondary-button"
+                    >
+                        {resetting ? 'Resetting...' : 'Reset Session'}
+                    </button>
+                </div>
+                
+                {/* Debug section */}
+                <div className="debug-section">
+                    <details>
+                        <summary>Debug Info</summary>
+                        <div>Extension ID: {chrome.runtime.id}</div>
+                        <div>Timestamp: {new Date().toISOString()}</div>
+                        {selectedProvider && (
+                            <div>Selected Provider: {PROVIDERS[selectedProvider].name}</div>
+                        )}
+                        {viewUrl && (
+                            <div>
+                                <a href={viewUrl} target="_blank" rel="noopener noreferrer">
+                                    View All Proofs
+                                </a>
+                            </div>
+                        )}
+                    </details>
+                </div>
             </div>
         </div>
     );
