@@ -186,13 +186,33 @@ export function createProviderVerificationPopup(providerName, description, dataR
         }
     }
 
+    // Function to show copy feedback (moved outside for reuse)
+    function showCopyFeedback(message, isError = false) {
+        const copyFeedback = popup.querySelector('#reclaim-copy-feedback');
+        if (copyFeedback) {
+            copyFeedback.textContent = message;
+            copyFeedback.style.color = isError ? '#ffffff' : '#ffffff';
+            copyFeedback.style.background = isError ? 
+                'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 
+                'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+            copyFeedback.classList.add('show');
+            
+            // Hide feedback after 2 seconds for more compact UX
+            setTimeout(() => {
+                copyFeedback.classList.remove('show');
+            }, 2000);
+        }
+    }
+
     // Function to initialize copy functionality
     function initializeCopyFunctionality() {
-        const copyButton = popup.querySelector('.reclaim-copy-icon');
         const copyFeedback = popup.querySelector('#reclaim-copy-feedback');
         
-        if (copyButton && copyFeedback) {
-            copyButton.addEventListener('click', async (e) => {
+        // Use event delegation to handle all copy buttons, including dynamically created ones
+        popup.addEventListener('click', async (e) => {
+            const copyButton = e.target.closest('.reclaim-copy-icon');
+            
+            if (copyButton) {
                 e.preventDefault();
                 e.stopPropagation();
                 
@@ -202,6 +222,12 @@ export function createProviderVerificationPopup(providerName, description, dataR
                 if (targetElement) {
                     try {
                         const textToCopy = targetElement.textContent.trim();
+                        
+                        console.log('[Reclaim Debug] Copying text:', {
+                            targetId: targetId,
+                            textLength: textToCopy.length,
+                            textPreview: textToCopy.substring(0, 100) + '...'
+                        });
                         
                         // Use the Clipboard API if available
                         if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -232,27 +258,15 @@ export function createProviderVerificationPopup(providerName, description, dataR
                             document.body.removeChild(textArea);
                         }
                     } catch (err) {
+                        console.error('[Reclaim Debug] Copy error:', err);
                         showCopyFeedback('Failed to copy', true);
                     }
+                } else {
+                    console.error('[Reclaim Debug] Target element not found:', targetId);
+                    showCopyFeedback('Failed to copy - element not found', true);
                 }
-            });
-        }
-        
-        function showCopyFeedback(message, isError = false) {
-            if (copyFeedback) {
-                copyFeedback.textContent = message;
-                copyFeedback.style.color = isError ? '#ffffff' : '#ffffff';
-                copyFeedback.style.background = isError ? 
-                    'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 
-                    'linear-gradient(135deg, #10b981 0%, #059669 100%)';
-                copyFeedback.classList.add('show');
-                
-                // Hide feedback after 2 seconds for more compact UX
-                setTimeout(() => {
-                    copyFeedback.classList.remove('show');
-                }, 2000);
             }
-        }
+        });
     }
 
     // Function to initialize tooltip functionality for long text
@@ -517,6 +531,68 @@ export function createProviderVerificationPopup(providerName, description, dataR
             // Show the proof viewer
             proofViewer.style.display = 'block';
             
+            // Verify copy button exists and is properly set up
+            const copyButton = proofViewer.querySelector('.reclaim-copy-icon');
+            if (copyButton) {
+                console.log('[Reclaim Debug] ZK proof copy button found:', {
+                    hasDataCopyTarget: !!copyButton.getAttribute('data-copy-target'),
+                    targetId: copyButton.getAttribute('data-copy-target'),
+                    targetElement: !!popup.querySelector(`#${copyButton.getAttribute('data-copy-target')}`)
+                });
+                
+                // Add a specific click handler for the ZK proof copy button as a fallback
+                copyButton.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    console.log('[Reclaim Debug] ZK proof copy button clicked');
+                    
+                    try {
+                        const textToCopy = proofContent.textContent.trim();
+                        
+                        console.log('[Reclaim Debug] Copying ZK proof:', {
+                            textLength: textToCopy.length,
+                            textPreview: textToCopy.substring(0, 100) + '...'
+                        });
+                        
+                        // Use the Clipboard API if available
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            await navigator.clipboard.writeText(textToCopy);
+                            showCopyFeedback('ZK Proof Copied!');
+                        } else {
+                            // Fallback for older browsers
+                            const textArea = document.createElement('textarea');
+                            textArea.value = textToCopy;
+                            textArea.style.position = 'fixed';
+                            textArea.style.left = '-9999px';
+                            textArea.style.top = '-9999px';
+                            document.body.appendChild(textArea);
+                            textArea.focus();
+                            textArea.select();
+                            
+                            try {
+                                const successful = document.execCommand('copy');
+                                if (successful) {
+                                    showCopyFeedback('ZK Proof Copied!');
+                                } else {
+                                    showCopyFeedback('Failed to copy ZK proof', true);
+                                }
+                            } catch (err) {
+                                showCopyFeedback('Failed to copy ZK proof', true);
+                            }
+                            
+                            document.body.removeChild(textArea);
+                        }
+                    } catch (err) {
+                        console.error('[Reclaim Debug] ZK proof copy error:', err);
+                        showCopyFeedback('Failed to copy ZK proof', true);
+                    }
+                });
+                
+            } else {
+                console.error('[Reclaim Debug] ZK proof copy button not found!');
+            }
+            
             // Scroll to the proof viewer
             setTimeout(() => {
                 proofViewer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -524,7 +600,15 @@ export function createProviderVerificationPopup(providerName, description, dataR
             
             console.log('[Reclaim Debug] ZK proof displayed in popup:', {
                 proofLength: formattedProof.length,
-                hasCopyButton: !!popup.querySelector('[data-copy-target="reclaim-proof-content"]')
+                hasCopyButton: !!copyButton,
+                hasCopyTarget: !!popup.querySelector('[data-copy-target="reclaim-proof-content"]'),
+                proofContentExists: !!proofContent,
+                proofContentLength: proofContent.textContent.length
+            });
+        } else {
+            console.error('[Reclaim Debug] ZK proof viewer elements not found:', {
+                hasProofViewer: !!proofViewer,
+                hasProofContent: !!proofContent
             });
         }
     }
